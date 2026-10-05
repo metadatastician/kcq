@@ -1,0 +1,57 @@
+# kcq Deployment Template
+# Standard Kubernetes Deployment template for kcq processing
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{DEPLOYMENT_NAME}}
+  namespace: {{NAMESPACE}}
+  labels:
+    app: {{APP_NAME}}
+    version: {{VERSION}}
+    managed-by: kcq
+spec:
+  replicas: {{REPLICAS}}
+  selector:
+    matchLabels:
+      app: {{APP_NAME}}
+      version: {{VERSION}}
+  template:
+    metadata:
+      labels:
+        app: {{APP_NAME}}
+        version: {{VERSION}}
+    spec:
+      containers:
+      - name: {{CONTAINER_NAME}}
+        image: {{IMAGE_NAME}}:{{IMAGE_TAG}}
+        imagePullPolicy: {{IMAGE_PULL_POLICY}}
+        ports:
+{{#PORTS}}
+        - containerPort: {{PORT}}
+          protocol: {{PROTOCOL}}
+{{/PORTS}}
+        env:
+{{#ENV_VARS}}
+        - name: {{NAME}}
+          value: {{VALUE}}
+{{/ENV_VARS}}
+        resources:
+          limits:
+            cpu: {{CPU_LIMIT}}
+            memory: {{MEMORY_LIMIT}}
+          requests:
+            cpu: {{CPU_REQUEST}}
+            memory: {{MEMORY_REQUEST}}
+        livenessProbe:
+          httpGet:
+            path: {{LIVENESS_PATH}}
+            port: {{LIVENESS_PORT}}
+          initialDelaySeconds: {{LIVENESS_INITIAL_DELAY}}
+          periodSeconds: {{LIVENESS_PERIOD}}
+        readinessProbe:
+          httpGet:
+            path: {{READINESS_PATH}}
+            port: {{READINESS_PORT}}
+          initialDelaySeconds: {{READINESS_INITIAL_DELAY}}
+          periodSeconds: {{READINESS_PERIOD}}
+      restartPolicy: Always

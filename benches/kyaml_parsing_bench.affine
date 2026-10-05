@@ -1,0 +1,225 @@
+-- kcq KYAML Parsing Benchmarks
+-- Performance benchmarks for KYAML parser
+
+module Kyaml.Benchmarks
+
+import Kyaml.Parser
+import System.Time
+
+-- Benchmark: Small Kubernetes manifest parsing
+function bench_small_manifest() -> Float {
+  let yaml = """
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod
+spec:
+  containers:
+  - name: test
+    image: nginx:latest
+"""
+  
+  let start = current_time()
+  
+  for i in 0..999 {
+    parse_yaml(yaml)
+  }
+  
+  let end = current_time()
+  let duration = time_diff_seconds(start, end)
+  
+  -- Return operations per second
+  1000.0 / duration
+}
+
+-- Benchmark: Large Kubernetes manifest parsing
+function bench_large_manifest() -> Float {
+  let yaml = """
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: large-deployment
+  labels:
+    app: nginx
+    version: v1.0.0
+    environment: production
+    tier: frontend
+    track: stable
+spec:
+  replicas: 10
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  minReadySeconds: 5
+  selector:
+    matchLabels:
+      app: nginx
+      version: v1.0.0
+  template:
+    metadata:
+      labels:
+        app: nginx
+        version: v1.0.0
+        environment: production
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.21.6
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        - containerPort: 443
+          protocol: TCP
+        env:
+        - name: ENV_VAR_1
+          value: value1
+        - name: ENV_VAR_2
+          value: value2
+        - name: ENV_VAR_3
+          value: value3
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/config
+        - name: data-volume
+          mountPath: /var/data
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: config-volume
+        configMap:
+          name: app-config
+      - name: data-volume
+        emptyDir: {}
+      imagePullSecrets:
+      - name: regcred
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 2000
+        fsGroup: 3000
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      tolerations:
+      - key: dedicated
+        operator: Equal
+        value: frontend
+        effect: NoSchedule
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - nginx
+              topologyKey: kubernetes.io/hostname
+"""
+  
+  let start = current_time()
+  
+  for i in 0..99 {
+    parse_yaml(yaml)
+  }
+  
+  let end = current_time()
+  let duration = time_diff_seconds(start, end)
+  
+  -- Return operations per second
+  100.0 / duration
+}
+
+-- Benchmark: Memory usage
+function bench_memory_usage() -> Float {
+  let yaml = """
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: memory-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test
+  template:
+    metadata:
+      labels:
+        app: test
+    spec:
+      containers:
+      - name: test
+        image: nginx:latest
+"""
+  
+  let start_memory = current_memory_usage()
+  
+  for i in 0..100 {
+    let _ = parse_yaml(yaml)
+  }
+  
+  let end_memory = current_memory_usage()
+  let memory_diff = end_memory - start_memory
+  
+  -- Return bytes per operation
+  memory_diff / 100.0
+}
+
+-- Benchmark: Lint rule performance
+function bench_lint_performance() -> Float {
+  let yaml = """
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lint-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test
+  template:
+    metadata:
+      labels:
+        app: test
+    spec:
+      containers:
+      - name: test
+        image: nginx:latest
+"""
+  
+  let start = current_time()
+  
+  for i in 0..999 {
+    case parse_yaml(yaml) {
+      | Ok(ast) -> lint_required_fields(ast)
+      | Err(_) -> []
+    }
+  }
+  
+  let end = current_time()
+  let duration = time_diff_seconds(start, end)
+  
+  -- Return lint operations per second
+  1000.0 / duration
+}

@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: Apache-2.0
+# Performance grading for kcq
+
+[metadata]
+version = "0.1.0"
+last-updated = "2026-10-05"
+grading-type = "performance"
+
+[performance-targets]
+# Performance grading tiers for kcq
+parse-speed-mb-per-second = [
+  { tier = "excellent", threshold = 100, description = ">100MB/s parsing speed" },
+  { tier = "good", threshold = 50, description = "50-100MB/s parsing speed" },
+  { tier = "acceptable", threshold = 25, description = "25-50MB/s parsing speed" },
+  { tier = "needs-improvement", threshold = 10, description = "10-25MB/s parsing speed" },
+  { tier = "poor", threshold = 0, description = "<10MB/s parsing speed" }
+]
+
+memory-usage-mb = [
+  { tier = "excellent", threshold = 10, description = "<10MB memory usage" },
+  { tier = "good", threshold = 25, description = "10-25MB memory usage" },
+  { tier = "acceptable", threshold = 50, description = "25-50MB memory usage" },
+  { tier = "needs-improvement", threshold = 100, description = "50-100MB memory usage" },
+  { tier = "poor", threshold = 1000, description = ">100MB memory usage" }
+]
+
+startup-time-ms = [
+  { tier = "excellent", threshold = 10, description = "<10ms startup time" },
+  { tier = "good", threshold = 50, description = "10-50ms startup time" },
+  { tier = "acceptable", threshold = 100, description = "50-100ms startup time" },
+  { tier = "needs-improvement", threshold = 500, description = "100-500ms startup time" },
+  { tier = "poor", threshold = 1000, description = ">500ms startup time" }
+]
+
+[benchmark-requirements]
+minimum-parse-speed = "25"  # MB/s - minimum acceptable performance
+maximum-memory-usage = "100"  # MB - maximum acceptable memory
+maximum-startup-time = "500"  # ms - maximum acceptable startup
+
+[current-performance]
+# Placeholder for actual benchmark results
+parse-speed = "0"  # MB/s - to be measured
+memory-usage = "0"  # MB - to be measured
+startup-time = "0"  # ms - to be measured
+
+[compliance-status]
+parse-speed-compliant = false
+memory-compliant = false
+startup-time-compliant = false

@@ -1,0 +1,56 @@
+# SPDX-License-Identifier: Apache-2.0
+# Test coverage grading for kcq
+
+[metadata]
+version = "0.1.0"
+last-updated = "2026-10-05"
+grading-type = "test-coverage"
+
+[coverage-targets]
+# Coverage grading tiers
+unit-test-coverage = [
+  { tier = "excellent", threshold = 95, description = ">95% unit test coverage" },
+  { tier = "good", threshold = 80, description = "80-95% unit test coverage" },
+  { tier = "acceptable", threshold = 70, description = "70-80% unit test coverage" },
+  { tier = "needs-improvement", threshold = 50, description = "50-70% unit test coverage" },
+  { tier = "poor", threshold = 0, description = "<50% unit test coverage" }
+]
+
+integration-test-coverage = [
+  { tier = "excellent", threshold = 90, description = ">90% integration test coverage" },
+  { tier = "good", threshold = 75, description = "75-90% integration test coverage" },
+  { tier = "acceptable", threshold = 60, description = "60-75% integration test coverage" },
+  { tier = "needs-improvement", threshold = 30, description = "30-60% integration test coverage" },
+  { tier = "poor", threshold = 0, description = "<30% integration test coverage" }
+]
+
+[test-requirements]
+minimum-unit-coverage = 70    # Minimum acceptable unit test coverage (%)
+minimum-integration-coverage = 60  # Minimum acceptable integration coverage (%)
+minimum-overall-coverage = 80    # Minimum overall test coverage (%)
+
+[test-components]
+unit-tests = [
+  { module = "Kyaml.Parser", status = "implemented", coverage = 0 },
+  { module = "Kyaml.Lexer", status = "implemented", coverage = 0 },
+  { module = "Kyaml.Ast", status = "implemented", coverage = 0 },
+  { module = "Kyaml.Lint.RequiredFields", status = "implemented", coverage = 0 },
+  { module = "Kyaml.Main", status = "planned", coverage = 0 }
+]
+
+integration-tests = [
+  { component = "CLI interface", status = "planned", coverage = 0 },
+  { component = "File I/O", status = "planned", coverage = 0 },
+  { component = "Error handling", status = "planned", coverage = 0 },
+  { component = "Performance benchmarks", status = "implemented", coverage = 0 }
+]
+
+[current-coverage]
+unit-test-coverage = 0     # % - to be calculated
+integration-coverage = 0   # % - to be calculated
+coverage-date = "2026-10-05"
+
+[compliance-status]
+unit-coverage-compliant = false
+integration-coverage-compliant = false
+overall-coverage-compliant = false

@@ -1,0 +1,92 @@
+-- kcq Lint Rules Tests
+-- Test suite for KYAML lint rules
+
+module Kyaml.Lint.Test
+
+import Kyaml.Lint.RequiredFields
+import Kyaml.Parser
+import Kyaml.Ast
+
+-- Test: Required fields lint rule
+function test_required_fields_rule() -> Bool {
+  let yaml = """
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-deployment
+"""
+  
+  case parse_yaml(yaml) {
+    | Ok(ast) -> 
+      let issues = lint_required_fields(ast)
+      -- Should pass if all required fields are present
+      length(issues) == 0
+    | Err(_) -> False
+  }
+}
+
+-- Test: Missing required fields detection
+function test_missing_required_fields() -> Bool {
+  let yaml = """
+apiVersion: apps/v1
+kind: Deployment
+-- Missing metadata.name
+"""
+  
+  case parse_yaml(yaml) {
+    | Ok(ast) -> 
+      let issues = lint_required_fields(ast)
+      -- Should detect missing required field
+      length(issues) > 0
+    | Err(_) -> False
+  }
+}
+
+-- Test: Invalid API version detection
+function test_invalid_api_version() -> Bool {
+  let yaml = """
+apiVersion: apps/v99  -- Invalid version
+kind: Deployment
+metadata:
+  name: test
+"""
+  
+  case parse_yaml(yaml) {
+    | Ok(ast) -> 
+      let issues = lint_k8s_schema(ast)  -- This function needs to be implemented
+      length(issues) > 0
+    | Err(_) -> False
+  }
+}
+
+-- Test: Valid Kubernetes resource validation
+function test_valid_k8s_resource() -> Bool {
+  let yaml = """
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: valid-deployment
+  labels:
+    app: test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test
+  template:
+    metadata:
+      labels:
+        app: test
+    spec:
+      containers:
+      - name: test
+        image: nginx:latest
+"""
+  
+  case parse_yaml(yaml) {
+    | Ok(ast) -> 
+      let issues = lint_required_fields(ast)
+      length(issues) == 0
+    | Err(_) -> False
+  }
+}

@@ -1,0 +1,104 @@
+-- kcq KYAML Parser Tests
+-- Test suite for AffineScript KYAML parser
+
+module Kyaml.Parser.Test
+
+import Kyaml.Parser
+import Kyaml.Ast
+import Kyaml.Lexer
+
+-- Test: Basic YAML parsing
+function test_basic_yaml_parsing() -> Bool {
+  let yaml = """
+name: test-deployment
+apiVersion: apps/v1
+kind: Deployment
+"""
+  
+  case parse_yaml(yaml) {
+    | Ok(ast) -> True  -- Parsing succeeded
+    | Err(_) -> False   -- Parsing failed
+  }
+}
+
+-- Test: Complex Kubernetes manifest parsing
+function test_complex_k8s_manifest() -> Bool {
+  let yaml = """
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.21
+        ports:
+        - containerPort: 80
+"""
+  
+  case parse_yaml(yaml) {
+    | Ok(ast) -> True
+    | Err(_) -> False
+  }
+}
+
+-- Test: Invalid YAML detection
+function test_invalid_yaml() -> Bool {
+  let invalid_yaml = """
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test
+  invalid: [unclosed
+"""
+  
+  case parse_yaml(invalid_yaml) {
+    | Ok(_) -> False  -- Should not succeed
+    | Err(_) -> True   -- Should fail as expected
+  }
+}
+
+-- Test: Lexer tokenization
+function test_lexer_basic_tokens() -> Bool {
+  let yaml = "name: value"
+  let tokens = lex_yaml(yaml)
+  
+  -- Should have at least some tokens
+  length(tokens) > 0
+}
+
+-- Test: Empty document handling
+function test_empty_document() -> Bool {
+  let yaml = ""
+  
+  case parse_yaml(yaml) {
+    | Ok(ast) -> True  -- Empty document is valid
+    | Err(_) -> False
+  }
+}
+
+-- Test: Nested structure parsing
+function test_nested_structure() -> Bool {
+  let yaml = """
+level1:
+  level2:
+    level3:
+      value: deep
+"""
+  
+  case parse_yaml(yaml) {
+    | Ok(ast) -> True
+    | Err(_) -> False
+  }
+}

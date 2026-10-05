@@ -1,0 +1,35 @@
+# kcq Service Template
+# Standard Kubernetes Service template for kcq processing
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{SERVICE_NAME}}
+  namespace: {{NAMESPACE}}
+  labels:
+    app: {{APP_NAME}}
+    managed-by: kcq
+spec:
+  type: {{SERVICE_TYPE}}
+  ports:
+{{#PORTS}}
+  - name: {{NAME}}
+    port: {{PORT}}
+    targetPort: {{TARGET_PORT}}
+    protocol: {{PROTOCOL}}
+{{/PORTS}}
+  selector:
+{{#SELECTOR}}
+    {{KEY}}: {{VALUE}}
+{{/SELECTOR}}
+  sessionAffinity: {{SESSION_AFFINITY}}
+{{#LOAD_BALANCER_IP}}
+  loadBalancerIP: {{LOAD_BALANCER_IP}}
+{{/LOAD_BALANCER_IP}}
+{{#EXTERNAL_IP}}
+  externalIPs:
+{{#EXTERNAL_IPS}}
+  - {{IP}}
+{{/EXTERNAL_IPS}}
+{{/EXTERNAL_IP}}
+  externalTrafficPolicy: {{EXTERNAL_TRAFFIC_POLICY}}
+  healthCheckNodePort: {{HEALTH_CHECK_NODE_PORT}}

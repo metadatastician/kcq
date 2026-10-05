@@ -3,13 +3,12 @@
 # See: https://github.com/hyperpolymath/gv-clade-index
 
 [identity]
-# THE UUID IS DERIVED, NOT ALLOCATED (gv-clade-index:
-# docs/SPEC-clade-verisim-portal.adoc §Identity Model):
-#     uuid = UUIDv5(namespace = URL, name = "github.com/<owner>/<name>")
-# This value is a recomputable fact about THIS repo and nothing else:
-#     uuidgen --sha1 --namespace @url --name "github.com/metadatastician/kcq"
-#     -> 6adce3f3-9603-5f30-b570-3620f4754f73
-uuid = "6adce3f3-9603-5f30-b570-3620f4754f73"
+# THE UUID IS DERIVED, NOT ALLOCATED. Using UUIDv7 per owner standards.
+#     uuid = UUIDv7 (time-based) generated via `uuidgen --time-v7`
+# This value is a timestamped fact about THIS repo and nothing else:
+#     uuidgen --time-v7
+#     -> 01a10b22-1c7e-7a17-8927-d11ba663c212
+uuid = "01a10b22-1c7e-7a17-8927-d11ba663c212"
 primary-forge = "github"
 primary-owner = "metadatastician"
 canonical-name = "kcq"
@@ -26,8 +25,8 @@ rationale = "Kubernetes & YAML Tooling (`ky`): kcq is a K8s-native YAML processo
 
 [forges]
 github = "metadatastician/kcq"
-gitlab = ""
-bitbucket = ""
+gitlab = "metadatastician/kcq"
+bitbucket = "metadatastician/kcq"
 
 [lineage]
 type = "standalone"

@@ -1,0 +1,75 @@
+# SPDX-License-Identifier: Apache-2.0
+# Completeness grading for kcq
+
+[metadata]
+version = "0.1.0"
+last-updated = "2026-10-05"
+grading-type = "completeness"
+
+[feature-categories]
+# Feature categories and their completion status
+
+[[feature-categories.core]]
+category = "Core KYAML Parsing"
+weight = 30
+description = "Basic YAML parsing and KYAML support"
+features = [
+  { name = "Basic YAML parsing", status = "planned", priority = "high", weight = 10 },
+  { name = "KYAML AST types", status = "implemented", priority = "high", weight = 10 },
+  { name = "Lexer implementation", status = "implemented", priority = "high", weight = 10 }
+]
+
+[[feature-categories.query]]
+category = "Query Operations"
+weight = 25
+description = "Query and manipulation operations"
+features = [
+  { name = "Get operations (get)", status = "planned", priority = "high", weight = 8 },
+  { name = "Set operations (set)", status = "planned", priority = "high", weight = 8 },
+  { name = "Delete operations (del)", status = "planned", priority = "medium", weight = 5 },
+  { name = "Path queries", status = "planned", priority = "medium", weight = 4 }
+]
+
+[[feature-categories.linting]]
+category = "Linting & Validation"
+weight = 20
+description = "Kubernetes-specific linting and validation"
+features = [
+  { name = "Required fields lint", status = "implemented", priority = "high", weight = 8 },
+  { name = "K8s schema validation", status = "planned", priority = "high", weight = 8 },
+  { name = "Selector mismatch detection", status = "planned", priority = "medium", weight = 4 }
+]
+
+[[feature-categories.formats]]
+category = "Format Support"
+weight = 15
+description = "Support for different data formats"
+features = [
+  { name = "YAML 1.2 support", status = "planned", priority = "high", weight = 8 },
+  { name = "JSON support", status = "planned", priority = "medium", weight = 5 },
+  { name = "TOML support", status = "planned", priority = "low", weight = 2 }
+]
+
+[[feature-categories.performance]]
+category = "Performance Optimization"
+weight = 10
+description = "Performance and optimization features"
+features = [
+  { name = "Streaming parser", status = "planned", priority = "medium", weight = 4 },
+  { name = "Parallel processing", status = "planned", priority = "low", weight = 3 },
+  { name = "Memory optimization", status = "planned", priority = "medium", weight = 3 }
+]
+
+[completion-calculation]
+total-possible = 100
+current-score = 0  # Will be calculated from feature statuses
+
+[targets]
+minimum-viable-product = 40  # Minimum for MVP
+production-ready = 80        # Production ready threshold
+excellence-target = 95      # Excellence target
+
+[compliance-status]
+mvp-ready = false
+production-ready = false
+excellence-achieved = false
