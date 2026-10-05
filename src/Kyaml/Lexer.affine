@@ -1,0 +1,373 @@
+// Kyaml.Lexer - Lexical analyzer for Kubernetes YAML
+//
+// This module provides the lexer (tokenizer) for KYAML.
+// It converts raw YAML text into a stream of tokens.
+
+module Kyaml.Lexer
+
+import Kyaml.Ast
+
+// ============================================================================
+// Token Types
+// ============================================================================
+
+/**
+ * Represents a token in the KYAML lexer.
+ * Each token has a type and a source location.
+ */
+type Token
+  = TKey of string * SourceLocation
+  | TColon of SourceLocation
+  | TDash of SourceLocation
+  | TScalar of string * SourceLocation
+  | TBlockStart of SourceLocation  // ---
+  | TBlockEnd of SourceLocation    // ...
+  | TNewline of SourceLocation
+  | TIndicators of SourceLocation  // Other YAML indicators: ?, :, -, etc.
+  | TComment of string * SourceLocation
+  | TAnchor of string * SourceLocation  // &anchor
+  | TAlias of string * SourceLocation    // *alias
+  | TTag of string * SourceLocation      // !!tag or !tag
+  | TEOF of SourceLocation
+
+// ============================================================================
+// Lexer State
+// ============================================================================
+
+/**
+ * Represents the current state of the lexer.
+ */
+type LexerState = {
+  input: string,       // Remaining input
+  position: int,       // Current position in input
+  line: int,          // Current line number
+  column: int,        // Current column number
+  indentStack: list<int>,  // Stack of indentation levels
+  currentIndent: int,  // Current indentation level
+  inComment: bool,    // Currently in a comment
+  inString: bool,     // Currently in a string
+  inTag: bool,        // Currently in a tag
+  anchorMap: Map<string, Node>  // Map of anchors to nodes (for alias resolution)
+}
+
+// ============================================================================
+// Initial State
+// ============================================================================
+
+/**
+ * Create an initial lexer state from input.
+ */
+initState :: string -> LexerState
+initState input = {
+  input: input,
+  position: 0,
+  line: 1,
+  column: 1,
+  indentStack: [0],
+  currentIndent: 0,
+  inComment: false,
+  inString: false,
+  inTag: false,
+  anchorMap: emptyMap
+}
+
+// ============================================================================
+// Character Classification
+// ============================================================================
+
+/**
+ * Check if a character is whitespace.
+ */
+isWhitespace :: char -> bool
+isWhitespace c = c == ' ' || c == '\t'
+
+/**
+ * Check if a character is a newline.
+ */
+isNewline :: char -> bool
+isNewline c = c == '\n' || c == '\r'
+
+/**
+ * Check if a character is alphanumeric.
+ */
+isAlnum :: char -> bool
+isAlnum c = isAlpha c || isDigit c
+
+/**
+ * Check if a character is a letter.
+ */
+isAlpha :: char -> bool
+isAlpha c = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c == '-'
+
+/**
+ * Check if a character is a digit.
+ */
+isDigit :: char -> bool
+isDigit c = c >= '0' && c <= '9'
+
+/**
+ * Check if a character is a YAML indicator.
+ */
+isIndicator :: char -> bool
+isIndicator c = c == ':' || c == '-' || c == '[' || c == ']' || c == '{' || c == '}' || c == ',' || c == '?' || c == '*' || c == '&' || c == '!' || c == '%' || c == '@' || c == '`'
+
+/**
+ * Check if a character can start a scalar.
+ */
+canStartScalar :: char -> bool
+canStartScalar c = isAlnum c || isIndicator c || c == '\"' || c == "'" || c == '|' || c == '>'
+
+// ============================================================================
+// Location Tracking
+// ============================================================================
+
+/**
+ * Get the current source location from lexer state.
+ */
+currentLocation :: LexerState -> SourceLocation
+currentLocation state = {
+  file: None,
+  line: state.line,
+  column: state.column,
+  offset: state.position
+}
+
+/**
+ * Get the next character and advance the lexer.
+ */
+nextChar :: LexerState -> Option<(char, LexerState)>
+nextChar state = 
+  if state.position >= length state.input then
+    None
+  else
+    let c = state.input[state.position]
+    let newState = if isNewline c then
+      {
+        input: state.input,
+        position: state.position + 1,
+        line: state.line + 1,
+        column: 1,
+        indentStack: state.indentStack,
+        currentIndent: state.currentIndent,
+        inComment: state.inComment,
+        inString: state.inString,
+        inTag: state.inTag,
+        anchorMap: state.anchorMap
+      }
+    else
+      {
+        input: state.input,
+        position: state.position + 1,
+        line: state.line,
+        column: state.column + 1,
+        indentStack: state.indentStack,
+        currentIndent: state.currentIndent,
+        inComment: state.inComment,
+        inString: state.inString,
+        inTag: state.inTag,
+        anchorMap: state.anchorMap
+      }
+    in Some (c, newState)
+
+/**
+ * Peek at the next character without consuming it.
+ */
+peekChar :: LexerState -> Option<char>
+peekChar state = 
+  if state.position >= length state.input then
+    None
+  else
+    Some state.input[state.position]
+
+/**
+ * Peek at the next N characters.
+ */
+peekChars :: LexerState -> int -> Option<string>
+peekChars state n = 
+  if state.position + n > length state.input then
+    None
+  else
+    Some (substring state.input state.position (state.position + n))
+
+// ============================================================================
+// Token Extraction
+// ============================================================================
+
+/**
+ * Extract a sequence of characters that match a predicate.
+ */
+extractWhile :: LexerState -> (char -> bool) -> (string, LexerState)
+extractWhile state pred = 
+  let rec loop acc s = 
+    match nextChar s with
+    | None -> (reverse acc, s)
+    | Some (c, newS) ->
+        if pred c then
+          loop (c :: acc) newS
+        else
+          (reverse acc, s)
+  in loop [] state
+
+/**
+ * Extract until a character is found.
+ */
+extractUntil :: LexerState -> char -> (string, LexerState)
+extractUntil state stopChar = 
+  let rec loop acc s = 
+    match nextChar s with
+    | None -> (reverse acc, s)
+    | Some (c, newS) ->
+        if c == stopChar then
+          (reverse acc, newS)
+        else
+          loop (c :: acc) newS
+  in loop [] state
+
+/**
+ * Skip whitespace and newlines.
+ */
+skipWhitespace :: LexerState -> LexerState
+skipWhitespace state = 
+  let rec loop s = 
+    match peekChar s with
+    | None -> s
+    | Some c ->
+        if isWhitespace c || isNewline c then
+          loop (advance s)
+        else
+          s
+  in loop state
+
+where advance s = match nextChar s with | Some (_, newS) -> newS | None -> s
+
+// ============================================================================
+// Main Lexer Function
+// ============================================================================
+
+/**
+ * The main lexer function. Converts input string into a list of tokens.
+ */
+lex :: string -> list<Token>
+lex input = 
+  let initialState = initState input
+  let rec loop state tokens = 
+    let loc = currentLocation state
+    match peekChar state with
+    | None -> reverse (TEOF loc :: tokens)
+    | Some c ->
+        // Skip whitespace
+        if isWhitespace c then
+          loop (skipWhitespace state) tokens
+        
+        // Handle comments
+        else if c == '#' then
+          let (commentText, newState) = extractUntil state '\n'
+          let commentToken = TComment commentText loc
+          loop newState (commentToken :: tokens)
+        
+        // Handle block start (---)
+        else if peekChars state 3 == Some("---") then
+          let newState = advanceN state 3
+          let blockStartLoc = currentLocation state
+          loop newState (TBlockStart blockStartLoc :: tokens)
+        
+        // Handle block end (...)
+        else if peekChars state 3 == Some("...") then
+          let newState = advanceN state 3
+          let blockEndLoc = currentLocation state
+          loop newState (TBlockEnd blockEndLoc :: tokens)
+        
+        // Handle newlines
+        else if isNewline c then
+          let newState = match nextChar state with | Some (_, s) -> s | None -> state
+          let newLoc = currentLocation newState
+          loop newState (TNewline newLoc :: tokens)
+        
+        // Handle colon
+        else if c == ':' then
+          let newState = match nextChar state with | Some (_, s) -> s | None -> state
+          let colonLoc = currentLocation state
+          loop newState (TColon colonLoc :: tokens)
+        
+        // Handle dash
+        else if c == '-' then
+          let newState = match nextChar state with | Some (_, s) -> s | None -> state
+          let dashLoc = currentLocation state
+          loop newState (TDash dashLoc :: tokens)
+        
+        // Handle keys (unquoted scalars that are keys)
+        else if isAlpha c then
+          let (keyText, newState) = extractWhile state isAlnumOrHyphen
+          let keyLoc = currentLocation state
+          loop newState (TKey keyText keyLoc :: tokens)
+        
+        // Handle quoted scalars
+        else if c == '\"' then
+          let (scalarText, newState) = extractQuotedString state '\"'
+          let scalarLoc = currentLocation state
+          loop newState (TScalar scalarText scalarLoc :: tokens)
+        
+        else if c == "'" then
+          let (scalarText, newState) = extractSingleQuotedString state
+          let scalarLoc = currentLocation state
+          loop newState (TScalar scalarText scalarLoc :: tokens)
+        
+        // Handle other indicators
+        else if isIndicator c then
+          let indicatorLoc = currentLocation state
+          let newState = match nextChar state with | Some (_, s) -> s | None -> state
+          loop newState (TIndicators indicatorLoc :: tokens)
+        
+        // Handle everything else as scalar
+        else
+          let (scalarText, newState) = extractScalar state
+          let scalarLoc = currentLocation state
+          loop newState (TScalar scalarText scalarLoc :: tokens)
+  
+  in loop initialState []
+
+where
+  isAlnumOrHyphen c = isAlnum c || c == '-' || c == '_'
+  
+  advanceN state n = 
+    let rec loop s i = 
+      if i <= 0 then s
+      else match nextChar s with | Some (_, newS) -> loop newS (i - 1) | None -> s
+    in loop state n
+  
+  extractQuotedString state quote = 
+    // TODO: Implement proper quoted string extraction with escape handling
+    let rec loop acc s = 
+      match nextChar s with
+      | None -> (reverse acc, s)
+      | Some (c, newS) ->
+          if c == quote then
+            (reverse acc, newS)
+          else
+            loop (c :: acc) newS
+    in loop [] (match nextChar state with | Some (_, s) -> s | None -> state)
+  
+  extractSingleQuotedString state = 
+    // Single quotes don't have escaping, so just find the closing quote
+    let rec loop acc s = 
+      match nextChar s with
+      | None -> (reverse acc, s)
+      | Some (c, newS) ->
+          if c == "'" then
+            (reverse acc, newS)
+          else
+            loop (c :: acc) newS
+    in loop [] (match nextChar state with | Some (_, s) -> s | None -> state)
+  
+  extractScalar state = 
+    // Extract a scalar value (simplified for now)
+    let rec loop acc s = 
+      match peekChar s with
+      | None -> (reverse acc, s)
+      | Some c ->
+          if isWhitespace c || isNewline c || isIndicator c then
+            (reverse acc, s)
+          else
+            let newS = match nextChar s with | Some (_, ns) -> ns | None -> s
+            loop (c :: acc) newS
+    in loop [] state

@@ -1,0 +1,35 @@
+# Build outputs
+dist/
+build/
+bin/
+*.wasm
+*.js
+*.mjs
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# AffineScript
+.affine/
+
+# Environment
+.env
+.env.local
+
+# Test
+.coverage/
+.nyc_output/
+
+# Temporary files
+*.tmp

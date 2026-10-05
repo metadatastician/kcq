@@ -1,0 +1,474 @@
+// Kyaml.Parser - Parser for Kubernetes YAML
+//
+// This module parses tokens into a KYAML AST.
+// It handles the YAML structure and builds Kubernetes-specific types.
+
+module Kyaml.Parser
+
+import Kyaml.Ast
+import Kyaml.Lexer
+
+// ============================================================================
+// Parser Types
+// ============================================================================
+
+/**
+ * Represents a parse error with context.
+ */
+type ParseError = {
+  message: string,
+  location: SourceLocation,
+  expected: list<string>,
+  found: Option<Token>
+}
+
+/**
+ * Represents the parser state.
+ */
+type ParserState = {
+  tokens: list<Token>,
+  position: int,
+  currentIndent: int,
+  indentStack: list<int>
+}
+
+// ============================================================================
+// Initial State
+// ============================================================================
+
+/**
+ * Create initial parser state from tokens.
+ */
+initParserState :: list<Token> -> ParserState
+initParserState tokens = {
+  tokens: tokens,
+  position: 0,
+  currentIndent: 0,
+  indentStack: [0]
+}
+
+// ============================================================================
+// Token Access
+// ============================================================================
+
+/**
+ * Get the current token.
+ */
+currentToken :: ParserState -> Option<Token>
+currentToken state = 
+  if state.position < length state.tokens then
+    Some state.tokens[state.position]
+  else
+    None
+
+/**
+ * Get the next token and advance.
+ */
+nextToken :: ParserState -> Option<(Token, ParserState)>
+nextToken state = 
+  if state.position >= length state.tokens then
+    None
+  else
+    let token = state.tokens[state.position]
+    let newState = { state | position: state.position + 1 }
+    Some (token, newState)
+
+/**
+ * Peek at the current token.
+ */
+peekToken :: ParserState -> Option<Token>
+peekToken state = currentToken state
+
+/**
+ * Peek at the next token.
+ */
+peekNextToken :: ParserState -> Option<Token>
+peekNextToken state = 
+  if state.position + 1 < length state.tokens then
+    Some state.tokens[state.position + 1]
+  else
+    None
+
+/**
+ * Check if current token is of a specific type.
+ */
+isToken :: ParserState -> (Token -> bool) -> bool
+isToken state pred = 
+  match peekToken state with
+  | Some token -> pred token
+  | None -> false
+
+// ============================================================================
+// Error Handling
+// ============================================================================
+
+/**
+ * Create a parse error.
+ */
+mkParseError :: string -> SourceLocation -> list<string> -> Option<Token> -> ParseError
+mkParseError message location expected found = {
+  message: message,
+  location: location,
+  expected: expected,
+  found: found
+}
+
+/**
+ * Expect a token of a specific type.
+ */
+expectToken :: ParserState -> (Token -> bool) -> string -> list<string> -> Result<Token, ParseError>
+expectToken state pred errorMsg expected = 
+  match nextToken state with
+  | Some (token, newState) ->
+      if pred token then
+        Ok token
+      else
+        Err (mkParseError errorMsg (getTokenLocation token) expected (Some token))
+  | None ->
+      let loc = if state.position < length state.tokens then
+          getTokenLocation state.tokens[state.position]
+        else
+          {file: None, line: 0, column: 0, offset: 0}
+      Err (mkParseError (errorMsg ++ " (unexpected end of input)") loc expected None)
+
+where getTokenLocation token = 
+  case token of
+    TKey (_, loc) -> loc
+    TColon loc -> loc
+    TDash loc -> loc
+    TScalar (_, loc) -> loc
+    TBlockStart loc -> loc
+    TBlockEnd loc -> loc
+    TNewline loc -> loc
+    TIndicators loc -> loc
+    TComment (_, loc) -> loc
+    TAnchor (_, loc) -> loc
+    TAlias (_, loc) -> loc
+    TTag (_, loc) -> loc
+    TEOF loc -> loc
+
+// ============================================================================
+// Node Parsing
+// ============================================================================
+
+/**
+ * Parse a node from the token stream.
+ * Handles scalars, sequences, and mappings.
+ */
+parseNode :: ParserState -> Result<(Node, ParserState), ParseError>
+parseNode state = 
+  // Try scalar first
+  let scalarResult = parseScalar state
+  case scalarResult of
+    Ok (node, newState) -> Ok (node, newState)
+    Err _ ->
+      // Try sequence
+      let seqResult = parseSequence state
+      case seqResult of
+        Ok (node, newState) -> Ok (node, newState)
+        Err _ ->
+          // Try mapping
+          let mapResult = parseMapping state
+          case mapResult of
+            Ok (node, newState) -> Ok (node, newState)
+            Err e -> Err e
+
+/**
+ * Parse a scalar value.
+ */
+parseScalar :: ParserState -> Result<(Node, ParserState), ParseError>
+parseScalar state = 
+  match peekToken state with
+  | Some (TScalar (value, loc)) ->
+      let node = parseScalarValue value loc
+      let newState = advance state
+      Ok (node, newState)
+  | Some (TKey (value, loc)) ->
+      // Keys can also be scalars in some contexts
+      let node = NScalar (SString value)
+      let newState = advance state
+      Ok (node, newState)
+  | Some token ->
+      Err (mkParseError "Expected scalar" (getTokenLocation token) ["scalar"] (Some token))
+  | None ->
+      Err (mkParseError "Expected scalar" {file: None, line: 0, column: 0, offset: 0} ["scalar"] None)
+
+where
+  advance state = match nextToken state with | Some (_, s) -> s | None -> state
+  
+  parseScalarValue value loc = 
+    // Try to parse as int
+    if isInteger value then
+      NScalar (SInt (parseInt value))
+    // Try to parse as float
+    else if isFloat value then
+      NScalar (SFloat (parseFloat value))
+    // Check for booleans
+    else if value == "true" then
+      NScalar (SBool true)
+    else if value == "false" then
+      NScalar (SBool false)
+    else if value == "null" || value == "~" then
+      NScalar SNull
+    // Everything else is a string
+    else
+      NScalar (SString value)
+  
+  isInteger s = 
+    if s == "" then false
+    else all isDigit s[0..length(s)-1] || (s[0] == '-' && all isDigit s[1..length(s)-1])
+  
+  parseInt s = 
+    if s == "" then 0
+    else if s[0] == '-' then -parseInt s[1..length(s)-1]
+    else foldl (\(acc, c) -> acc * 10 + (charToDigit c)) 0 s
+  
+  charToDigit c = if c >= '0' && c <= '9' then ord c - ord '0' else 0
+  
+  isFloat s = contains s '.'
+  parseFloat s = 0.0  // Simplified - real implementation would parse properly
+
+/**
+ * Parse a sequence (list/array).
+ */
+parseSequence :: ParserState -> Result<(Node, ParserState), ParseError>
+parseSequence state = 
+  // Check for sequence indicator
+  match peekToken state with
+  | Some (TDash _) ->
+      let items = []
+      let rec loop s = 
+        // Skip the dash
+        let newState = advance s
+        // Parse the value after dash
+        match parseNode newState with
+        | Ok (node, afterNode) ->
+            let restResult = loop afterNode
+            case restResult of
+              Ok (moreItems, finalState) -> Ok (node :: moreItems, finalState)
+              Err e -> Err e
+        | Err e -> Err e
+      in
+        let result = loop state
+        case result of
+          Ok (items, finalState) -> Ok (NSequence items, finalState)
+          Err e -> Err e
+  | _ ->
+      Err (mkParseError "Expected sequence start (-)" (getLoc state) ["sequence"] None)
+
+where
+  getLoc state = if state.position < length state.tokens then getTokenLocation state.tokens[state.position] else {file: None, line: 0, column: 0, offset: 0}
+
+/**
+ * Parse a mapping (object/dictionary).
+ */
+parseMapping :: ParserState -> Result<(Node, ParserState), ParseError>
+parseMapping state = 
+  let entries = []
+  let rec loop s = 
+    // Check if we're done (newline, end of block, etc.)
+    match peekToken s with
+    | Some (TNewline _) ->
+        let newState = advance s
+        // Check indentation - if we're back to a previous level, we're done
+        if isDedent newState then
+          Ok (entries, newState)
+        else
+          loop newState
+    | Some (TBlockEnd _) ->
+        Ok (entries, advance s)
+    | Some (TEOF _) ->
+        Ok (entries, s)
+    | Some token ->
+        // Parse key
+        match parseKey s with
+        | Ok (key, afterKey) ->
+            // Expect colon
+            match expectToken afterKey isColon "Expected : after key" [":"] with
+            | Ok (_, afterColon) ->
+                // Parse value
+                match parseNode (skipWhitespace afterColon) with
+                | Ok (value, afterValue) ->
+                    let entry = (key, value)
+                    loop afterValue |> map ((\entries) -> entry :: entries)
+                | Err e -> Err e
+            | Err e -> Err e
+        | Err e -> Err e
+    | None ->
+        Ok (entries, s)
+  in
+    let result = loop state
+    case result of
+      Ok (entries, finalState) ->
+        // Convert to map
+        let m = foldl (\m, (k, v) -> m.insert k v) emptyMap entries
+        Ok (NMapping m, finalState)
+      Err e -> Err e
+
+where
+  isColon token = case token of | TColon _ -> true | _ -> false
+  skipWhitespace s = 
+    let rec loop t = 
+      match peekToken t with
+      | Some (TNewline _) -> loop (advance t)
+      | Some (TComment _) -> loop (advance t)
+      | Some _ -> t
+      | None -> t
+    in loop s
+
+/**
+ * Parse a key (can be a scalar or a more complex key).
+ */
+parseKey :: ParserState -> Result<(string, ParserState), ParseError>
+parseKey state = 
+  match peekToken state with
+  | Some (TKey (value, loc)) ->
+      Ok (value, advance state)
+  | Some (TScalar (value, loc)) ->
+      Ok (value, advance state)
+  | Some token ->
+      Err (mkParseError "Expected key" (getTokenLocation token) ["key"] (Some token))
+  | None ->
+      Err (mkParseError "Expected key" {file: None, line: 0, column: 0, offset: 0} ["key"] None)
+
+// ============================================================================
+// Document Parsing
+// ============================================================================
+
+/**
+ * Parse a complete KYAML document.
+ * A document starts at the beginning or after a --- separator.
+ */
+parseDocument :: ParserState -> Result<(KYamlDoc, ParserState), ParseError>
+parseDocument state = 
+  // Skip block start if present
+  let state1 = match peekToken state with
+    | Some (TBlockStart _) -> advance state
+    | _ -> state
+  
+  // Parse the top-level mapping
+  match parseMapping state1 with
+  | Ok (node, afterMapping) ->
+      // Check if this is a K8s resource
+      case tryParseResource node of
+        Some resource ->
+          let doc = KResource resource
+          let state2 = skipToNextDoc afterMapping
+          Ok (doc, state2)
+        None ->
+          let doc = KGeneric node
+          let state2 = skipToNextDoc afterMapping
+          Ok (doc, state2)
+  | Err e -> Err e
+
+where
+  advance state = match nextToken state with | Some (_, s) -> s | None -> state
+  
+  skipToNextDoc state = 
+    let rec loop s = 
+      match peekToken s with
+      | Some (TBlockStart _) -> advance s
+      | Some (TNewline _) -> loop (advance s)
+      | Some _ -> s
+      | None -> s
+    in loop state
+
+/**
+ * Try to parse a Node as a Kubernetes Resource.
+ */
+tryParseResource :: Node -> Option<Resource>
+tryParseResource node = 
+  case node of
+    NMapping m ->
+      // Check for required fields
+      if m.has "apiVersion" && m.has "kind" && m.has "metadata" then
+        Some {
+          apiVersion: getString m "apiVersion" "",
+          kind: getString m "kind" "",
+          metadata: parseMetadata (m.lookup "metadata"),
+          spec: m.lookupDefault (NScalar SNull) "spec",
+          status: m.lookup "status"
+        }
+      else
+        None
+    _ -> None
+
+where
+  getString m key default = 
+    case m.lookup key of
+      Some (NScalar (SString s)) -> s
+      Some _ -> default
+      None -> default
+  
+  parseMetadata node = 
+    case node of
+      NMapping m -> {
+        name: getString m "name" "",
+        namespace: m.lookup "namespace" |> map getStringFromNode,
+        labels: getMap m "labels",
+        annotations: getMap m "annotations",
+        uid: m.lookup "uid" |> map getStringFromNode,
+        resourceVersion: m.lookup "resourceVersion" |> map getStringFromNode,
+        creationTimestamp: m.lookup "creationTimestamp" |> map getStringFromNode,
+        generation: m.lookup "generation" |> map getIntFromNode,
+        managedFields: None  // Simplified for now
+      }
+      _ -> defaultMetadata
+    
+  getStringFromNode node = 
+    case node of
+      NScalar (SString s) -> s
+      _ -> ""
+  
+  getIntFromNode node = 
+    case node of
+      NScalar (SInt i) -> i
+      _ -> 0
+  
+  getMap m key = 
+    case m.lookup key of
+      Some (NMapping subM) -> subM.toMap |> mapValues getStringFromNode
+      _ -> emptyMap
+    
+  mapValues f m = foldl (\acc, k, v -> acc.insert k (f v)) emptyMap m
+  
+  defaultMetadata = {
+    name: "",
+    namespace: None,
+    labels: emptyMap,
+    annotations: emptyMap,
+    uid: None,
+    resourceVersion: None,
+    creationTimestamp: None,
+    generation: None,
+    managedFields: None
+  }
+
+// ============================================================================
+// Main Parser Function
+// ============================================================================
+
+/**
+ * Parse a complete KYAML file (potentially multi-document).
+ */
+parseKyaml :: string -> Result<KYamlFile, ParseError>
+parseKyaml input = 
+  let tokens = lex input
+  let state = initParserState tokens
+  let docs = []
+  let rec loop s = 
+    match peekToken s with
+    | Some (TEOF _) -> Ok (reverse docs, s)
+    | Some (TBlockStart _) ->
+        let result = parseDocument (advance s)
+        case result of
+          Ok (doc, newState) -> loop newState |> map ((\ds) -> doc :: ds)
+          Err e -> Err e
+    | Some _ ->
+        let result = parseDocument s
+        case result of
+          Ok (doc, newState) -> loop newState |> map ((\ds) -> doc :: ds)
+          Err e -> Err e
+    | None -> Ok (reverse docs, s)
+  in
+    loop state

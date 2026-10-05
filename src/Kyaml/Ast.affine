@@ -1,0 +1,394 @@
+// Kyaml.Ast - Abstract Syntax Tree for Kubernetes YAML
+// 
+// This module defines the AST types for Kubernetes YAML (KYAML) documents.
+// KYAML is a subset of YAML 1.2 with Kubernetes-specific conventions.
+
+module Kyaml.Ast
+
+// ============================================================================
+// Value Types
+// ============================================================================
+
+/**
+ * Represents a scalar value in KYAML.
+ * Can be string, integer, float, boolean, null, or timestamp.
+ */
+type Scalar
+  = SString of string
+  | SInt of int
+  | SFloat of float
+  | SBool of bool
+  | SNull
+  | STimestamp of string  // ISO 8601 or RFC 3339
+
+/**
+ * Represents a YAML node in the AST.
+ * This is the core type for all KYAML values.
+ */
+type Node
+  = NScalar of Scalar
+  | NSequence of list<Node>
+  | NMapping of Map<string, Node>
+  | NAnchor of string * Node  // Anchor label and node
+  | NAlias of string  // Anchor reference
+  | NTag of string * Node  // Custom tag and node
+
+// ============================================================================
+// Metadata Types
+// ============================================================================
+
+/**
+ * Represents metadata common to all Kubernetes resources.
+ */
+type Metadata = {
+  name: string,
+  namespace: Option<string>,
+  labels: Map<string, string>,
+  annotations: Map<string, string>,
+  uid: Option<string>,
+  resourceVersion: Option<string>,
+  creationTimestamp: Option<string>,
+  generation: Option<int>,
+  managedFields: Option<list<ManagedField>>
+}
+
+/**
+ * Represents a managed field in metadata.
+ */
+type ManagedField = {
+  manager: string,
+  operation: string,  // Apply, Update
+  time: string,
+  fieldsType: string,  // FieldsV1
+  fieldsV1: Option<Map<string, any>>  // Simplified
+}
+
+// ============================================================================
+// Kubernetes Object Types
+// ============================================================================
+
+/**
+ * Represents a Kubernetes object reference.
+ */
+type ObjectReference = {
+  apiVersion: string,
+  kind: string,
+  name: string,
+  namespace: Option<string>,
+  resourceVersion: Option<string>,
+  uid: Option<string>
+}
+
+/**
+ * Represents a Kubernetes owner reference.
+ */
+type OwnerReference = {
+  apiVersion: string,
+  kind: string,
+  name: string,
+  uid: string,
+  controller: Option<bool>,
+  blockOwnerDeletion: Option<bool>
+}
+
+// ============================================================================
+// Resource Types
+// ============================================================================
+
+/**
+ * Represents a Kubernetes resource document.
+ * This is the top-level structure for any K8s manifest.
+ */
+type Resource = {
+  apiVersion: string,
+  kind: string,
+  metadata: Metadata,
+  spec: Node,  // Generic spec - type depends on kind
+  status: Option<Node>  // Generic status - type depends on kind
+}
+
+// ============================================================================
+// Specific Resource Types
+// ============================================================================
+
+// These are more specific types for common K8s resources.
+// They provide type safety for known resource kinds.
+
+/**
+ * Pod Specification
+ */
+type PodSpec = {
+  containers: list<Container>,
+  initContainers: Option<list<Container>>,
+  volumes: Option<list<Volume>>,
+  restartPolicy: Option<string>,
+  terminationGracePeriodSeconds: Option<int>,
+  activeDeadlineSeconds: Option<int>,
+  dnsPolicy: Option<string>,
+  dnsConfig: Option<DNSConfig>,
+  nodeSelector: Option<Map<string, string>>,
+  affinity: Option<Affinity>,
+  tolerations: Option<list<Toleration>>,
+  securityContext: Option<PodSecurityContext>,
+  serviceAccountName: Option<string>,
+  serviceAccount: Option<string>,
+  hostname: Option<string>,
+  subdomain: Option<string>,
+  schedulerName: Option<string>,
+  enableServiceLinks: Option<bool>
+}
+
+/**
+ * Container specification
+ */
+type Container = {
+  name: string,
+  image: string,
+  command: Option<list<string>>,
+  args: Option<list<string>>,
+  workingDir: Option<string>,
+  ports: Option<list<ContainerPort>>,
+  env: Option<list<EnvVar>>,
+  envFrom: Option<list<EnvFromSource>>,
+  resources: Option<ResourceRequirements>,
+  volumeMounts: Option<list<VolumeMount>>,
+  livenessProbe: Option<Probe>,
+  readinessProbe: Option<Probe>,
+  startupProbe: Option<Probe>,
+  lifecycle: Option<Lifecycle>,
+  terminationMessagePath: Option<string>,
+  terminationMessagePolicy: Option<string>,
+  imagePullPolicy: Option<string>,
+  securityContext: Option<SecurityContext>,
+  stdin: Option<bool>,
+  stdinOnce: Option<bool>,
+  tty: Option<bool>
+}
+
+/**
+ * Container port
+ */
+type ContainerPort = {
+  name: Option<string>,
+  containerPort: int,
+  protocol: Option<string>,  // TCP, UDP, SCTP
+  hostPort: Option<int>,
+  hostIP: Option<string>
+}
+
+/**
+ * Environment variable
+ */
+type EnvVar = {
+  name: string,
+  value: Option<string>,
+  valueFrom: Option<EnvVarSource>
+}
+
+/**
+ * Environment variable source
+ */
+type EnvVarSource
+  = EVConfigMapKeyRef of ConfigMapKeySelector
+  | EVSecretKeyRef of SecretKeySelector
+  | EVFieldRef of ObjectFieldSelector
+  | EVResourceFieldRef of ResourceFieldSelector
+
+/**
+ * ConfigMap key selector
+ */
+type ConfigMapKeySelector = {
+  name: string,
+  key: string,
+  optional: Option<bool>
+}
+
+/**
+ * Secret key selector
+ */
+type SecretKeySelector = {
+  name: string,
+  key: string,
+  optional: Option<bool>
+}
+
+/**
+ * Object field selector
+ */
+type ObjectFieldSelector = {
+  apiVersion: string,
+  fieldPath: string
+}
+
+/**
+ * Resource field selector
+ */
+type ResourceFieldSelector = {
+  containerName: string,
+  resource: string,
+  divisor: Option<string>
+}
+
+// ============================================================================
+// Deployment Types
+// ============================================================================
+
+/**
+ * Deployment specification
+ */
+type DeploymentSpec = {
+  replicas: Option<int>,
+  selector: LabelSelector,
+  template: PodTemplateSpec,
+  strategy: Option<DeploymentStrategy>,
+  minReadySeconds: Option<int>,
+  revisionHistoryLimit: Option<int>,
+  paused: Option<bool>,
+  progressDeadlineSeconds: Option<int>
+}
+
+/**
+ * Label selector
+ */
+type LabelSelector = {
+  matchLabels: Option<Map<string, string>>,
+  matchExpressions: Option<list<LabelSelectorRequirement>>
+}
+
+/**
+ * Label selector requirement
+ */
+type LabelSelectorRequirement = {
+  key: string,
+  operator: string,  // In, NotIn, Exists, DoesNotExist
+  values: Option<list<string>>
+}
+
+/**
+ * Pod template specification
+ */
+type PodTemplateSpec = {
+  metadata: Metadata,
+  spec: PodSpec
+}
+
+/**
+ * Deployment strategy
+ */
+type DeploymentStrategy = {
+  type: Option<string>,  // Recreate, RollingUpdate
+  rollingUpdate: Option<RollingUpdateDeployment>
+}
+
+/**
+ * Rolling update deployment
+ */
+type RollingUpdateDeployment = {
+  maxUnavailable: Option<IntOrString>,
+  maxSurge: Option<IntOrString>
+}
+
+/**
+ * Can be an integer or a string percentage
+ */
+type IntOrString
+  = IInt of int
+  | IString of string
+
+// ============================================================================
+// Service Types
+// ============================================================================
+
+/**
+ * Service specification
+ */
+type ServiceSpec = {
+  selector: Option<Map<string, string>>,
+  ports: Option<list<ServicePort>>,
+  clusterIP: Option<string>,
+  type: Option<string>,  // ClusterIP, NodePort, LoadBalancer, ExternalName
+  externalIPs: Option<list<string>>,
+  sessionAffinity: Option<string>,
+  loadBalancerIP: Option<string>,
+  loadBalancerSourceRanges: Option<list<string>>,
+  externalName: Option<string>,
+  externalTrafficPolicy: Option<string>,
+  healthCheckNodePort: Option<int>,
+  publishNotReadyAddresses: Option<bool>,
+  sessionAffinityConfig: Option<SessionAffinityConfig>
+}
+
+/**
+ * Service port
+ */
+type ServicePort = {
+  name: Option<string>,
+  protocol: Option<string>,
+  port: int,
+  targetPort: Option<IntOrString>,
+  nodePort: Option<int>
+}
+
+// ============================================================================
+// Document Types
+// ============================================================================
+
+/**
+ * Represents a complete KYAML document (single YAML document).
+ * This can be a K8s resource or any valid YAML structure.
+ */
+type KYamlDoc
+  = KResource of Resource  // Kubernetes resource
+  | KGeneric of Node  // Generic YAML (not a K8s resource)
+
+/**
+ * Represents a complete KYAML file (potentially multi-document).
+ */
+type KYamlFile = list<KYamlDoc>
+
+// ============================================================================
+// Source Location
+// ============================================================================
+
+/**
+ * Represents a location in the source KYAML.
+ * Used for error reporting.
+ */
+type SourceLocation = {
+  file: Option<string>,
+  line: int,
+  column: int,
+  offset: int
+}
+
+/**
+ * Add source location to a node for error reporting.
+ */
+type LocatedNode = {
+  node: Node,
+  location: SourceLocation
+}
+
+// ============================================================================
+// Error Types
+// ============================================================================
+
+/**
+ * Represents a parse error.
+ */
+type ParseError = {
+  message: string,
+  location: SourceLocation,
+  expected: Option<list<string>>,
+  found: Option<string>
+}
+
+/**
+ * Represents a validation error.
+ */
+type ValidationError = {
+  message: string,
+  path: list<string>,  // JSON path to the error
+  location: SourceLocation,
+  ruleId: Option<string>
+}

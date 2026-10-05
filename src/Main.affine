@@ -1,0 +1,1151 @@
+// Main - Command-line interface for kcq
+//
+// This module provides the CLI entry point for kcq.
+// It handles command-line arguments and dispatches to appropriate functionality.
+
+module Main
+
+import Kyaml
+import Kyaml.Ast
+import Kyaml.Lint.RequiredFields
+
+// ============================================================================
+// CLI Types
+// ============================================================================
+
+/**
+ * Represents a command-line command.
+ */
+type Command
+  = CmdLint of LintOptions
+  | CmdFmt of FmtOptions
+  | CmdGet of GetOptions
+  | CmdSet of SetOptions
+  | CmdDel of DelOptions
+  | CmdValidate of ValidateOptions
+  | CmdSplit of SplitOptions
+  | CmdMerge of MergeOptions
+  | CmdDiff of DiffOptions
+  | CmdHelp of Option<string>
+  | CmdVersion
+
+/**
+ * Options for the lint command.
+ */
+type LintOptions = {
+  files: list<string>,
+  rules: Option<list<string>>,  // Specific rules to enable/disable
+  format: string,              // Output format: text, json, sarif
+  check: bool,                 // Exit with error code if issues found
+  quiet: bool                  // Only show errors
+}
+
+/**
+ * Options for the fmt command.
+ */
+type FmtOptions = {
+  files: list<string>,
+  inPlace: bool,
+  output: Option<string>,
+  indent: int,
+  width: int
+}
+
+/**
+ * Options for the get command.
+ */
+type GetOptions = {
+  files: list<string>,
+  path: string,
+  all: bool  // Get from all documents
+}
+
+/**
+ * Options for the set command.
+ */
+type SetOptions = {
+  files: list<string>,
+  path: string,
+  value: string,
+  inPlace: bool
+}
+
+/**
+ * Options for the del command.
+ */
+type DelOptions = {
+  files: list<string>,
+  path: string,
+  inPlace: bool
+}
+
+/**
+ * Options for the validate command.
+ */
+type ValidateOptions = {
+  files: list<string>,
+  strict: bool,
+  schema: Option<string>
+}
+
+/**
+ * Options for the split command.
+ */
+type SplitOptions = {
+  files: list<string>,
+  output: string
+}
+
+/**
+ * Options for the merge command.
+ */
+type MergeOptions = {
+  files: list<string>,
+  output: Option<string>
+}
+
+/**
+ * Options for the diff command.
+ */
+type DiffOptions = {
+  file1: string,
+  file2: string
+}
+
+// ============================================================================
+// Version Information
+// ============================================================================
+
+/**
+ * kcq version information.
+ */
+type VersionInfo = {
+  version: string,
+  commit: Option<string>,
+  date: string,
+  language: string,
+  target: string
+}
+
+/**
+ * Get version information.
+ */
+getVersion :: VersionInfo
+getVersion = {
+  version: "0.1.0",
+  commit: None,
+  date: "2026-10-05",
+  language: "AffineScript",
+  target: "WebAssembly"
+}
+
+// ============================================================================
+// CLI Argument Parsing
+// ============================================================================
+
+/**
+ * Parse command-line arguments into a Command.
+ */
+parseArgs :: list<string> -> Result<Command, string>
+parseArgs args = 
+  case args of
+    [] -> Ok (CmdHelp None)
+    ["--version"] -> Ok CmdVersion
+    ["--help"] -> Ok (CmdHelp None)
+    ("lint" :: rest) -> parseLintArgs rest
+    ("fmt" :: rest) -> parseFmtArgs rest
+    ("get" :: rest) -> parseGetArgs rest
+    ("set" :: rest) -> parseSetArgs rest
+    ("del" :: rest) -> parseDelArgs rest
+    ("validate" :: rest) -> parseValidateArgs rest
+    ("split" :: rest) -> parseSplitArgs rest
+    ("merge" :: rest) -> parseMergeArgs rest
+    ("diff" :: rest) -> parseDiffArgs rest
+    _ -> Err ("Unknown command: " ++ args[0] ++ ". Use --help for usage.")
+
+where
+  parseLintArgs args = 
+    let rec loop options remaining = 
+      case remaining of
+        [] -> Ok (CmdLint options)
+        ("--rule" :: value :: rest) ->
+          loop { options | rules: Some (value :: options.rules.default []) } rest
+        ("--format" :: value :: rest) ->
+          loop { options | format: value } rest
+        ("--check" :: rest) ->
+          loop { options | check: true } rest
+        ("--quiet" :: rest) ->
+          loop { options | quiet: true } rest
+        ("--help" :: rest) ->
+          Ok (CmdHelp (Some "lint"))
+        (arg :: rest) ->
+          if arg[0] == '-' then
+            Err ("Unknown option: " ++ arg)
+          else
+            loop { options | files: arg :: options.files } rest
+    in
+      loop {
+        files: [],
+        rules: None,
+        format: "text",
+        check: false,
+        quiet: false
+      } args
+  
+  parseFmtArgs args = 
+    let rec loop options remaining = 
+      case remaining of
+        [] -> Ok (CmdFmt options)
+        ("--in-place" :: rest) | ("-i" :: rest) ->
+          loop { options | inPlace: true } rest
+        ("--output" :: value :: rest) | ("-o" :: value :: rest) ->
+          loop { options | output: Some value } rest
+        ("--indent" :: value :: rest) ->
+          loop { options | indent: parseInt value } rest
+        ("--width" :: value :: rest) ->
+          loop { options | width: parseInt value } rest
+        ("--help" :: rest) ->
+          Ok (CmdHelp (Some "fmt"))
+        (arg :: rest) ->
+          if arg[0] == '-' then
+            Err ("Unknown option: " ++ arg)
+          else
+            loop { options | files: arg :: options.files } rest
+    in
+      loop {
+        files: [],
+        inPlace: false,
+        output: None,
+        indent: 2,
+        width: 80
+      } args
+  
+  parseGetArgs args = 
+    let rec loop options remaining = 
+      case remaining of
+        [] -> Ok (CmdGet options)
+        ("--all" :: rest) | ("-a" :: rest) ->
+          loop { options | all: true } rest
+        ("--help" :: rest) ->
+          Ok (CmdHelp (Some "get"))
+        (arg :: rest) ->
+          if arg[0] == '-' then
+            Err ("Unknown option: " ++ arg)
+          else if options.path == "" then
+            loop { options | path: arg } rest
+          else
+            loop { options | files: arg :: options.files } rest
+    in
+      loop {
+        files: [],
+        path: "",
+        all: false
+      } args
+  
+  parseSetArgs args = 
+    let rec loop options remaining = 
+      case remaining of
+        [] -> 
+          if options.path == "" || options.value == "" then
+            Err "set requires PATH and VALUE arguments"
+          else
+            Ok (CmdSet options)
+        ("--in-place" :: rest) | ("-i" :: rest) ->
+          loop { options | inPlace: true } rest
+        ("--help" :: rest) ->
+          Ok (CmdHelp (Some "set"))
+        (arg :: rest) ->
+          if arg[0] == '-' then
+            Err ("Unknown option: " ++ arg)
+          else if options.path == "" then
+            loop { options | path: arg } rest
+          else if options.value == "" then
+            loop { options | value: arg } rest
+          else
+            loop { options | files: arg :: options.files } rest
+    in
+      loop {
+        files: [],
+        path: "",
+        value: "",
+        inPlace: false
+      } args
+  
+  parseDelArgs args = 
+    let rec loop options remaining = 
+      case remaining of
+        [] -> 
+          if options.path == "" then
+            Err "del requires PATH argument"
+          else
+            Ok (CmdDel options)
+        ("--in-place" :: rest) | ("-i" :: rest) ->
+          loop { options | inPlace: true } rest
+        ("--help" :: rest) ->
+          Ok (CmdHelp (Some "del"))
+        (arg :: rest) ->
+          if arg[0] == '-' then
+            Err ("Unknown option: " ++ arg)
+          else if options.path == "" then
+            loop { options | path: arg } rest
+          else
+            loop { options | files: arg :: options.files } rest
+    in
+      loop {
+        files: [],
+        path: "",
+        inPlace: false
+      } args
+  
+  parseValidateArgs args = 
+    let rec loop options remaining = 
+      case remaining of
+        [] -> Ok (CmdValidate options)
+        ("--strict" :: rest) ->
+          loop { options | strict: true } rest
+        ("--schema" :: value :: rest) ->
+          loop { options | schema: Some value } rest
+        ("--help" :: rest) ->
+          Ok (CmdHelp (Some "validate"))
+        (arg :: rest) ->
+          if arg[0] == '-' then
+            Err ("Unknown option: " ++ arg)
+          else
+            loop { options | files: arg :: options.files } rest
+    in
+      loop {
+        files: [],
+        strict: false,
+        schema: None
+      } args
+  
+  parseSplitArgs args = 
+    let rec loop options remaining = 
+      case remaining of
+        [] -> Ok (CmdSplit options)
+        ("--output" :: value :: rest) | ("-o" :: value :: rest) ->
+          loop { options | output: value } rest
+        ("--help" :: rest) ->
+          Ok (CmdHelp (Some "split"))
+        (arg :: rest) ->
+          if arg[0] == '-' then
+            Err ("Unknown option: " ++ arg)
+          else
+            loop { options | files: arg :: options.files } rest
+    in
+      loop {
+        files: [],
+        output: "."
+      } args
+  
+  parseMergeArgs args = 
+    let rec loop options remaining = 
+      case remaining of
+        [] -> Ok (CmdMerge options)
+        ("--output" :: value :: rest) | ("-o" :: value :: rest) ->
+          loop { options | output: Some value } rest
+        ("--help" :: rest) ->
+          Ok (CmdHelp (Some "merge"))
+        (arg :: rest) ->
+          if arg[0] == '-' then
+            Err ("Unknown option: " ++ arg)
+          else
+            loop { options | files: arg :: options.files } rest
+    in
+      loop {
+        files: [],
+        output: None
+      } args
+  
+  parseDiffArgs args = 
+    case args of
+      [file1, file2] -> Ok (CmdDiff { file1: file1, file2: file2 })
+      ["--help"] -> Ok (CmdHelp (Some "diff"))
+      _ -> Err "diff requires exactly two file arguments"
+
+// ============================================================================
+// Command Execution
+// ============================================================================
+
+/**
+ * Execute a command.
+ */
+execCommand :: Command -> IO<()>
+execCommand cmd = 
+  case cmd of
+    CmdVersion ->
+      let version = getVersion
+      putStrLn ("kcq " ++ version.version ++ " (" ++ version.target ++ ", " ++ version.language ++ ")")
+      putStrLn ("Kubernetes Configuration Query - AffineScript-based KYAML processor")
+    
+    CmdHelp subcommand ->
+      case subcommand of
+        None -> printHelp
+        Some cmdName -> printHelpFor cmdName
+    
+    CmdLint options ->
+      execLint options
+    
+    CmdFmt options ->
+      execFmt options
+    
+    CmdGet options ->
+      execGet options
+    
+    CmdSet options ->
+      execSet options
+    
+    CmdDel options ->
+      execDel options
+    
+    CmdValidate options ->
+      execValidate options
+    
+    CmdSplit options ->
+      execSplit options
+    
+    CmdMerge options ->
+      execMerge options
+    
+    CmdDiff options ->
+      execDiff options
+
+where
+  printHelp = do
+    putStrLn "kcq — Kubernetes Configuration Query"
+    putStrLn ""
+    putStrLn "Usage: kcq [COMMAND] [OPTIONS] [FILE...]"
+    putStrLn ""
+    putStrLn "Commands:"
+    putStrLn "  lint       Lint K8s manifests for issues"
+    putStrLn "  fmt        Pretty-print YAML"
+    putStrLn "  get        Query a value from YAML"
+    putStrLn "  set        Set a value at a path"
+    putStrLn "  del        Delete a field at a path"
+    putStrLn "  validate   Validate against K8s schemas"
+    putStrLn "  split      Split multi-doc YAML into files"
+    putStrLn "  merge      Merge multiple YAML files"
+    putStrLn "  diff       Show differences between resources"
+    putStrLn ""
+    putStrLn "Options:"
+    putStrLn "  --version   Show version information"
+    putStrLn "  --help      Show this help message"
+    putStrLn ""
+    putStrLn "Run 'kcq [COMMAND] --help' for more information on a command."
+
+  printHelpFor cmdName = 
+    case cmdName of
+      "lint" -> printLintHelp
+      "fmt" -> printFmtHelp
+      "get" -> printGetHelp
+      "set" -> printSetHelp
+      "del" -> printDelHelp
+      "validate" -> printValidateHelp
+      "split" -> printSplitHelp
+      "merge" -> printMergeHelp
+      "diff" -> printDiffHelp
+      _ -> putStrLn ("Unknown command: " ++ cmdName)
+
+  printLintHelp = do
+    putStrLn "Usage: kcq lint [OPTIONS] [FILE...]"
+    putStrLn ""
+    putStrLn "Lint Kubernetes manifests for common issues."
+    putStrLn ""
+    putStrLn "Options:"
+    putStrLn "  --rule RULE     Enable/disable specific rules (e.g., --rule=-latest-tag)"
+    putStrLn "  --format FMT    Output format: text, json, sarif (default: text)"
+    putStrLn "  --check         Exit with error code if issues found"
+    putStrLn "  --quiet         Only show errors"
+    putStrLn "  --help          Show this help message"
+    putStrLn ""
+    putStrLn "Rules:"
+    putStrLn "  required-fields   - Check all required K8s fields are present (error)"
+    putStrLn "  type-check        - Validate field types (error)"
+    putStrLn "  deprecated-api    - Warn on deprecated API versions (warning)"
+    putStrLn "  latest-tag       - Warn on :latest image tags (warning)"
+    putStrLn "  selector-mismatch - Check selector matches pod template (warning)"
+
+  printFmtHelp = do
+    putStrLn "Usage: kcq fmt [OPTIONS] [FILE...]"
+    putStrLn ""
+    putStrLn "Pretty-print YAML files."
+    putStrLn ""
+    putStrLn "Options:"
+    putStrLn "  -i, --in-place    Modify files in place"
+    putStrLn "  -o, --output FILE Write to file instead of stdout"
+    putStrLn "  --indent INT      Indentation level (default: 2)"
+    putStrLn "  --width INT       Line width (default: 80)"
+    putStrLn "  --help            Show this help message"
+
+  printGetHelp = do
+    putStrLn "Usage: kcq get [OPTIONS] PATH [FILE...]"
+    putStrLn ""
+    putStrLn "Query a value from YAML using a path expression."
+    putStrLn ""
+    putStrLn "Arguments:"
+    putStrLn "  PATH   Path expression (e.g., .spec.replicas)"
+    putStrLn ""
+    putStrLn "Options:"
+    putStrLn "  -a, --all    Get from all documents in multi-doc files"
+    putStrLn "  --help       Show this help message"
+    putStrLn ""
+    putStrLn "Examples:"
+    putStrLn "  kcq get deployment.yaml '.spec.replicas'"
+    putStrLn "  kcq get deployment.yaml '.metadata.labels.app'"
+    putStrLn "  kcq get deployment.yaml '.spec.containers[0].image'"
+
+  printSetHelp = do
+    putStrLn "Usage: kcq set [OPTIONS] PATH VALUE [FILE...]"
+    putStrLn ""
+    putStrLn "Set a value at a path in YAML."
+    putStrLn ""
+    putStrLn "Arguments:"
+    putStrLn "  PATH   Path expression (e.g., .spec.replicas)"
+    putStrLn "  VALUE  Value to set (parsed as YAML scalar)"
+    putStrLn ""
+    putStrLn "Options:"
+    putStrLn "  -i, --in-place   Modify files in place"
+    putStrLn "  --help           Show this help message"
+    putStrLn ""
+    putStrLn "Examples:"
+    putStrLn "  kcq set deployment.yaml '.spec.replicas' 5 -i"
+    putStrLn "  kcq set deployment.yaml '.spec.template.spec.containers[0].image' 'nginx:1.25' -i"
+
+  printDelHelp = do
+    putStrLn "Usage: kcq del [OPTIONS] PATH [FILE...]"
+    putStrLn ""
+    putStrLn "Delete a field at a path in YAML."
+    putStrLn ""
+    putStrLn "Arguments:"
+    putStrLn "  PATH   Path expression (e.g., .spec.replicas)"
+    putStrLn ""
+    putStrLn "Options:"
+    putStrLn "  -i, --in-place   Modify files in place"
+    putStrLn "  --help           Show this help message"
+    putStrLn ""
+    putStrLn "Examples:"
+    putStrLn "  kcq del deployment.yaml '.metadata.labels.old-label' -i"
+
+  printValidateHelp = do
+    putStrLn "Usage: kcq validate [OPTIONS] [FILE...]"
+    putStrLn ""
+    putStrLn "Validate Kubernetes manifests against official schemas."
+    putStrLn ""
+    putStrLn "Options:"
+    putStrLn "  --strict    Fail on warnings as well as errors"
+    putStrLn "  --schema    Path to custom schema file"
+    putStrLn "  --help      Show this help message"
+
+  printSplitHelp = do
+    putStrLn "Usage: kcq split [OPTIONS] [FILE...]"
+    putStrLn ""
+    putStrLn "Split multi-document YAML into separate files."
+    putStrLn ""
+    putStrLn "Options:"
+    putStrLn "  -o, --output DIR   Output directory (default: .)"
+    putStrLn "  --help             Show this help message"
+    putStrLn ""
+    putStrLn "Examples:"
+    putStrLn "  kcq split multi.yaml -o manifests/"
+
+  printMergeHelp = do
+    putStrLn "Usage: kcq merge [OPTIONS] [FILE...]"
+    putStrLn ""
+    putStrLn "Merge multiple YAML files into one."
+    putStrLn ""
+    putStrLn "Options:"
+    putStrLn "  -o, --output FILE  Write to file instead of stdout"
+    putStrLn "  --help             Show this help message"
+
+  printDiffHelp = do
+    putStrLn "Usage: kcq diff FILE1 FILE2"
+    putStrLn ""
+    putStrLn "Show differences between two resources."
+    putStrLn ""
+    putStrLn "Arguments:"
+    putStrLn "  FILE1   First file to compare"
+    putStrLn "  FILE2   Second file to compare"
+    putStrLn ""
+    putStrLn "Options:"
+    putStrLn "  --help   Show this help message"
+
+  -- ================================================================
+  -- Command Implementations
+  -- ================================================================
+
+  execLint options = do
+    if options.files == [] then
+      putStrLn "Error: No files specified"
+      exit 1
+    else
+      let allIssues = []
+      let rec loop remainingIssues files = 
+        case files of
+          [] -> pure (reverse remainingIssues)
+          (file :: rest) -> do
+            content <- readFile file
+            let fileIssues = lintFile content
+            loop (fileIssues ++ remainingIssues) rest
+      
+      issues <- loop allIssues options.files
+      
+      if issues == [] && not options.quiet then
+        putStrLn "✓ All files passed linting"
+      else
+        let formatted = formatIssues issues options.format
+        putStrLn formatted
+        
+        if options.check && hasErrors issues then
+          exit 1
+        else
+          pure ()
+  
+  hasErrors issues = any (\issue -> issue.severity == Error) issues
+  
+  formatIssues issues format = 
+    case format of
+      "json" -> formatIssuesJson issues
+      "sarif" -> formatIssuesSarif issues
+      _ -> formatIssuesText issues
+  
+  formatIssuesText issues = 
+    foldl (\acc, issue -> 
+      acc ++ severitySymbol issue.severity ++ " " ++ issue.message ++ 
+      if issue.path /= [] then " (" ++ join "." issue.path ++ ")" else "" ++ "\n") "" issues
+  
+  severitySymbol severity = 
+    case severity of
+      Error -> "✗"
+      Warning -> "⚠"
+      Info -> "ℹ"
+  
+  formatIssuesJson issues = 
+    "[" ++ join "," (map formatIssueJson issues) ++ "]"
+  
+  formatIssueJson issue = 
+    "{" ++ 
+    "\"ruleId\":\"" ++ issue.ruleId ++ "\"," ++
+    "\"severity\":\"" ++ severityString issue.severity ++ "\"," ++
+    "\"message\":\"" ++ escapeJson issue.message ++ "\"," ++
+    "\"path\":[" ++ join "," (map (\p -> "\"" ++ escapeJson p ++ "\"") issue.path) ++ "]" ++
+    "}"
+  
+  severityString severity = 
+    case severity of
+      Error -> "error"
+      Warning -> "warning"
+      Info -> "info"
+  
+  escapeJson s = 
+    foldl (\acc, c -> 
+      if c == '\"' then acc ++ "\\\""
+      else if c == '\n' then acc ++ "\\n"
+      else if c == '\t' then acc ++ "\\t"
+      else acc ++ stringOfChar c) "" s
+  
+  formatIssuesSarif issues = 
+    "{\n" ++
+    "  \"$schema\": \"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json\",\n" ++
+    "  \"version\": \"2.1.0\",\n" ++
+    "  \"runs\": [{\n" ++
+    "    \"tool\": {\n" ++
+    "      \"driver\": {\n" ++
+    "        \"name\": \"kcq\",\n" ++
+    "        \"informationUri\": \"https://github.com/metadatastician/kcq\",\n" ++
+    "        \"version\": \"" ++ getVersion.version ++ "\"\n" ++
+    "      }\n" ++
+    "    },\n" ++
+    "    \"results\": [\n" ++
+    join ",\n" (map formatSarifResult issues) ++ "\n" ++
+    "    ]\n" ++
+    "  }]\n" ++
+    "}"
+  
+  formatSarifResult issue = 
+    "      {\n" ++
+    "        \"ruleId\": \"" ++ issue.ruleId ++ "\",\n" ++
+    "        \"level\": \"" ++ sarifLevel issue.severity ++ "\",\n" ++
+    "        \"message\": {\n" ++
+    "          \"text\": \"" ++ escapeJson issue.message ++ "\"\n" ++
+    "        },\n" ++
+    "        \"locations\": [{\n" ++
+    "          \"physicalLocation\": {\n" ++
+    "            \"artifactLocation\": {\n" ++
+    "              \"uri\": \"file:///input\"\n" ++
+    "            },\n" ++
+    "            \"region\": {\n" ++
+    "              \"startLine\": 1\n" ++
+    "            }\n" ++
+    "          }\n" ++
+    "        }]\n" ++
+    "      }"
+  
+  sarifLevel severity = 
+    case severity of
+      Error -> "error"
+      Warning -> "warning"
+      Info -> "note"
+
+  execFmt options = do
+    if options.files == [] then
+      putStrLn "Error: No files specified"
+      exit 1
+    else
+      let rec loop files = 
+        case files of
+          [] -> pure ()
+          (file :: rest) -> do
+            content <- readFile file
+            let parsed = parse content
+            case parsed of
+              ParseSuccess file ->
+                let yaml = toYaml file
+                if options.inPlace then
+                  writeFile file yaml
+                else if options.output.isSome then
+                  let outFile = options.output.fromSome
+                  writeFile outFile yaml
+                else
+                  putStr yaml
+                loop rest
+              ParseFailure errors ->
+                putStrLn ("Error parsing " ++ file ++ ": " ++ show errors)
+                exit 1
+      loop options.files
+
+  execGet options = do
+    if options.path == "" then
+      putStrLn "Error: No path specified"
+      exit 1
+    else if options.files == [] then
+      putStrLn "Error: No files specified"
+      exit 1
+    else
+      let rec loop files = 
+        case files of
+          [] -> pure ()
+          (file :: rest) -> do
+            content <- readFile file
+            let parsed = parse content
+            case parsed of
+              ParseSuccess file ->
+                case options.all of
+                  | true ->
+                      let results = map (\doc -> query doc options.path) file.docs
+                      let output = filter isSome results |> map fromSome
+                      putStrLn (join "\n" (map nodeToString output))
+                  | false ->
+                      let result = query file.docs[0] options.path
+                      case result of
+                        Some node -> putStrLn (nodeToString node)
+                        None -> putStrLn ""
+                loop rest
+              ParseFailure errors ->
+                putStrLn ("Error parsing " ++ file ++ ": " ++ show errors)
+                exit 1
+      loop options.files
+  
+  nodeToString node = 
+    case node of
+      NScalar scalar -> scalarToString scalar
+      NSequence list -> "[" ++ join "," (map nodeToString list) ++ "]"
+      NMapping m -> "{" ++ join "," (map (\k, v -> k ++ ": " ++ nodeToString v) m.toList) ++ "}"
+      _ -> "<complex>"
+  
+  scalarToString scalar = 
+    case scalar of
+      SString s -> s
+      SInt i -> intToString i
+      SFloat f -> floatToString f
+      SBool b -> if b then "true" else "false"
+      SNull -> "null"
+      STimestamp ts -> ts
+
+  execSet options = do
+    if options.path == "" then
+      putStrLn "Error: No path specified"
+      exit 1
+    else if options.value == "" then
+      putStrLn "Error: No value specified"
+      exit 1
+    else if options.files == [] then
+      putStrLn "Error: No files specified"
+      exit 1
+    else
+      let valueNode = parseValue options.value
+      let rec loop files = 
+        case files of
+          [] -> pure ()
+          (file :: rest) -> do
+            content <- readFile file
+            let parsed = parse content
+            case parsed of
+              ParseSuccess file ->
+                let newFile = map (\doc -> set doc options.path valueNode) file.docs
+                let newContent = toYaml newFile
+                if options.inPlace then
+                  writeFile file newContent
+                else
+                  putStr newContent
+                loop rest
+              ParseFailure errors ->
+                putStrLn ("Error parsing " ++ file ++ ": " ++ show errors)
+                exit 1
+      loop options.files
+  
+  parseValue value = 
+    // Try to parse as different types
+    if isInteger value then
+      NScalar (SInt (parseInt value))
+    else if isFloat value then
+      NScalar (SFloat (parseFloat value))
+    else if value == "true" then
+      NScalar (SBool true)
+    else if value == "false" then
+      NScalar (SBool false)
+    else if value == "null" then
+      NScalar SNull
+    else
+      NScalar (SString value)
+
+  execDel options = do
+    if options.path == "" then
+      putStrLn "Error: No path specified"
+      exit 1
+    else if options.files == [] then
+      putStrLn "Error: No files specified"
+      exit 1
+    else
+      let rec loop files = 
+        case files of
+          [] -> pure ()
+          (file :: rest) -> do
+            content <- readFile file
+            let parsed = parse content
+            case parsed of
+              ParseSuccess file ->
+                let newFile = map (\doc -> delete doc options.path) file.docs
+                let newContent = toYaml newFile
+                if options.inPlace then
+                  writeFile file newContent
+                else
+                  putStr newContent
+                loop rest
+              ParseFailure errors ->
+                putStrLn ("Error parsing " ++ file ++ ": " ++ show errors)
+                exit 1
+      loop options.files
+
+  execValidate options = do
+    putStrLn "Validate command - not yet implemented"
+
+  execSplit options = do
+    putStrLn "Split command - not yet implemented"
+
+  execMerge options = do
+    putStrLn "Merge command - not yet implemented"
+
+  execDiff options = do
+    putStrLn "Diff command - not yet implemented"
+
+// ============================================================================
+// Main Entry Point
+// ============================================================================
+
+/**
+ * Main entry point for kcq.
+ */
+main :: list<string> -> IO<()>
+main args = do
+  case parseArgs args of
+    Ok cmd -> execCommand cmd
+    Err msg -> do
+      putStrLn ("Error: " ++ msg)
+      putStrLn ""
+      printHelp
+      exit 1
+
+// ============================================================================
+// Utility Functions
+// ============================================================================
+
+/**
+ * Simple integer parsing (for CLI args).
+ */
+parseInt :: string -> int
+parseInt s = 
+  if s == "" then 0
+  else if s[0] == '-' then -parseInt s[1..length(s)-1]
+  else foldl (\acc, c -> acc * 10 + (ord c - ord '0')) 0 s
+
+/**
+ * Simple float parsing (for CLI args).
+ */
+parseFloat :: string -> float
+parseFloat s = 0.0  // Simplified for now
+
+/**
+ * Check if string is an integer.
+ */
+isInteger :: string -> bool
+isInteger s = 
+  if s == "" then false
+  else all (\c -> c >= '0' && c <= '9') s[0..length(s)-1] || 
+       (s[0] == '-' && all (\c -> c >= '0' && c <= '9') s[1..length(s)-1])
+
+/**
+ * Check if string is a float.
+ */
+isFloat :: string -> bool
+isFloat s = contains s '.'
+
+/**
+ * Check if character is digit.
+ */
+isDigit :: char -> bool
+isDigit c = c >= '0' && c <= '9'
+
+/**
+ * Get character ordinal value.
+ */
+ord :: char -> int
+ord c = charToInt c
+
+/**
+ * Convert integer to character.
+ */
+charOfInt :: int -> char
+charOfInt i = intToChar i
+
+/**
+ * Convert integer to string.
+ */
+intToString :: int -> string
+intToString i = 
+  if i == 0 then "0"
+  else if i < 0 then "-" ++ intToString (-i)
+  else intToStringHelper i ""
+
+intToStringHelper i acc = 
+  if i == 0 then 
+    if acc == "" then "0" else acc
+  else
+    intToStringHelper (i / 10) (charOfDigit (i % 10) :: acc)
+
+charOfDigit d = 
+  if d == 0 then '0' else if d == 1 then '1' else if d == 2 then '2' 
+  else if d == 3 then '3' else if d == 4 then '4' else if d == 5 then '5'
+  else if d == 6 then '6' else if d == 7 then '7' else if d == 8 then '8'
+  else '9'
+
+/**
+ * String concatenation.
+ */
+(++) :: string -> string -> string
+(++) = append
+
+/**
+ * Join a list of strings with a separator.
+ */
+join :: string -> list<string> -> string
+join sep list = 
+  let rec loop acc remaining = 
+    case remaining of
+      [] -> acc
+      [x] -> acc ++ x
+      (x :: xs) -> loop (acc ++ x ++ sep) xs
+  in loop "" list
+
+/**
+ * Check if list contains element.
+ */
+contains :: list<a> -> a -> bool
+contains list elem = any (\x -> x == elem) list
+
+/**
+ * Get element from Maybe.
+ */
+fromSome :: Option<a> -> a
+fromSome opt = case opt of | Some x -> x | None -> error "fromSome on None"
+
+/**
+ * Check if Option is Some.
+ */
+isSome :: Option<a> -> bool
+isSome opt = case opt of | Some _ -> true | None -> false
+
+/**
+ * Map over Option.
+ */
+map :: (a -> b) -> Option<a> -> Option<b>
+map f opt = case opt of | Some x -> Some (f x) | None -> None
+
+/**
+ * Filter a list.
+ */
+filter :: (a -> bool) -> list<a> -> list<a>
+filter pred list = 
+  let rec loop acc remaining = 
+    case remaining of
+      [] -> reverse acc
+      (x :: xs) ->
+        if pred x then
+          loop (x :: acc) xs
+        else
+          loop acc xs
+  in loop [] list
+
+/**
+ * Fold left.
+ */
+foldl :: (b -> a -> b) -> b -> list<a> -> b
+foldl f acc list = 
+  let rec loop acc' remaining = 
+    case remaining of
+      [] -> acc'
+      (x :: xs) -> loop (f acc' x) xs
+  in loop acc list
+
+/**
+ * Reverse a list.
+ */
+reverse :: list<a> -> list<a>
+reverse list = 
+  let rec loop acc remaining = 
+    case remaining of
+      [] -> acc
+      (x :: xs) -> loop (x :: acc) xs
+  in loop [] list
+
+/**
+ * Get list length.
+ */
+length :: list<a> -> int
+length list = 
+  let rec loop acc remaining = 
+    case remaining of
+      [] -> acc
+      (_ :: xs) -> loop (acc + 1) xs
+  in loop 0 list
+
+/**
+ * Concatenate two lists.
+ */
+append :: list<a> -> list<a> -> list<a>
+append list1 list2 = 
+  let rec loop acc remaining = 
+    case remaining of
+      [] -> reverse acc ++ list2
+      (x :: xs) -> loop (x :: acc) xs
+  in loop [] list1
+
+/**
+ * Get element at index.
+ */
+getIndex :: list<a> -> int -> Option<a>
+getIndex list idx = 
+  let rec loop remaining i = 
+    case remaining of
+      [] -> None
+      (x :: xs) ->
+        if i == 0 then Some x
+        else loop xs (i - 1)
+  in loop list idx
+
+/**
+ * Split string by delimiter.
+ */
+split :: string -> string -> list<string>
+split str delim = 
+  if delim == "" then [str]
+  else splitHelper str delim []
+
+splitHelper str delim acc = 
+  let idx = findIndex str delim
+  in
+    if idx == -1 then
+      reverse (str :: acc)
+    else
+      let part = substring str 0 idx
+      let rest = substring str (idx + length delim) (length str)
+      splitHelper rest delim (part :: acc)
+
+findIndex str delim = 
+  let rec loop i = 
+    if i + length delim > length str then -1
+    else if substring str i (i + length delim) == delim then i
+    else loop (i + 1)
+  in loop 0
+
+substring str start end = 
+  if start >= end || start >= length str then ""
+  else substringHelper str start end []
+
+substringHelper str start end acc = 
+  if start >= end then
+    reverse acc
+  else
+    substringHelper str (start + 1) end (str[start] :: acc)
+
+/**
+ * Get substring length.
+ */
+stringLength :: string -> int
+stringLength s = length (stringToList s)
+
+/**
+ * Convert string to list of characters.
+ */
+stringToList :: string -> list<char>
+stringToList s = 
+  let rec loop acc i = 
+    if i >= length s then reverse acc
+    else loop (s[i] :: acc) (i + 1)
+  in loop [] 0
+
+/**
+ * Convert list of characters to string.
+ */
+listToString :: list<char> -> string
+listToString chars = 
+  let rec loop acc remaining = 
+    case remaining of
+      [] -> acc
+      (c :: cs) -> loop (acc ++ stringOfChar c) cs
+  in loop "" chars
+
+/**
+ * Convert character to string.
+ */
+stringOfChar :: char -> string
+stringOfChar c = [c]
+
+/**
+ * Exit the program.
+ */
+exit :: int -> IO<()>
+exit code = pure ()  // Placeholder - actual implementation depends on AffineScript runtime
+
+/**
+ * Print to stdout.
+ */
+putStr :: string -> IO<()>
+putStr s = pure ()  // Placeholder
+
+/**
+ * Print line to stdout.
+ */
+putStrLn :: string -> IO<()>
+putStrLn s = putStr (s ++ "\n")
+
+/**
+ * Read file contents.
+ */
+readFile :: string -> IO<string>
+readFile path = pure ""  // Placeholder
+
+/**
+ * Write string to file.
+ */
+writeFile :: string -> string -> IO<()>
+writeFile path content = pure ()  // Placeholder
