@@ -1,18 +1,43 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
-
--- kcq KYAML Parsing Benchmarks
--- Performance benchmarks for KYAML parser
+//
+// kcq KYAML Parsing Benchmarks
+// Performance benchmarks for KYAML parser
 
 module Kyaml.Benchmarks
 
 import Kyaml.Parser
-import System.Time
 
--- Benchmark: Small Kubernetes manifest parsing
-function bench_small_manifest() -> Float {
-  let yaml = """
-apiVersion: v1
+// Benchmark result type
+pub type BenchmarkResult = {
+    name: String,
+    operations: Int,
+    duration_seconds: Float,
+    ops_per_second: Float,
+}
+
+// Run a benchmark and return results
+pub fn run_benchmark(name: String, operations: Int, func: () -> ()) -> BenchmarkResult {
+    let start = time_now();
+    
+    for _ in range(0, operations) {
+        func();
+    }
+    
+    let end = time_now();
+    let duration = time_diff_seconds(start, end);
+    
+    {
+        name: name,
+        operations: operations,
+        duration_seconds: duration,
+        ops_per_second: float_from_int(operations) / duration,
+    }
+}
+
+// Benchmark: Small Kubernetes manifest parsing
+pub fn bench_small_manifest() -> BenchmarkResult {
+    let yaml = """apiVersion: v1
 kind: Pod
 metadata:
   name: test-pod
@@ -20,25 +45,69 @@ spec:
   containers:
   - name: test
     image: nginx:latest
-"""
-  
-  let start = current_time()
-  
-  for i in 0..999 {
-    parse_yaml(yaml)
-  }
-  
-  let end = current_time()
-  let duration = time_diff_seconds(start, end)
-  
-  -- Return operations per second
-  1000.0 / duration
+""";
+    
+    run_benchmark("small_manifest", 1000, || parse_yaml(yaml))
 }
 
--- Benchmark: Large Kubernetes manifest parsing
-function bench_large_manifest() -> Float {
-  let yaml = """
-apiVersion: apps/v1
+// Benchmark: Medium Kubernetes manifest parsing
+pub fn bench_medium_manifest() -> BenchmarkResult {
+    let yaml = """apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: medium-deployment
+  labels:
+    app: nginx
+    version: v1.0.0
+    environment: production
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+      version: v1.0.0
+  template:
+    metadata:
+      labels:
+        app: nginx
+        version: v1.0.0
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.21.6
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        - containerPort: 443
+          protocol: TCP
+        env:
+        - name: ENV_VAR_1
+          value: value1
+        - name: ENV_VAR_2
+          value: value2
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/config
+      volumes:
+      - name: config-volume
+        configMap:
+          name: app-config
+""";
+    
+    run_benchmark("medium_manifest", 100, || parse_yaml(yaml))
+}
+
+// Benchmark: Large Kubernetes manifest parsing
+pub fn bench_large_manifest() -> BenchmarkResult {
+    let yaml = """apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: large-deployment
@@ -139,60 +208,14 @@ spec:
                   values:
                   - nginx
               topologyKey: kubernetes.io/hostname
-"""
-  
-  let start = current_time()
-  
-  for i in 0..99 {
-    parse_yaml(yaml)
-  }
-  
-  let end = current_time()
-  let duration = time_diff_seconds(start, end)
-  
-  -- Return operations per second
-  100.0 / duration
+""";
+    
+    run_benchmark("large_manifest", 10, || parse_yaml(yaml))
 }
 
--- Benchmark: Memory usage
-function bench_memory_usage() -> Float {
-  let yaml = """
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: memory-test
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: test
-  template:
-    metadata:
-      labels:
-        app: test
-    spec:
-      containers:
-      - name: test
-        image: nginx:latest
-"""
-  
-  let start_memory = current_memory_usage()
-  
-  for i in 0..100 {
-    let _ = parse_yaml(yaml)
-  }
-  
-  let end_memory = current_memory_usage()
-  let memory_diff = end_memory - start_memory
-  
-  -- Return bytes per operation
-  memory_diff / 100.0
-}
-
--- Benchmark: Lint rule performance
-function bench_lint_performance() -> Float {
-  let yaml = """
-apiVersion: apps/v1
+// Benchmark: Lint rule performance
+pub fn bench_lint_performance() -> BenchmarkResult {
+    let yaml = """apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: lint-test
@@ -209,20 +232,64 @@ spec:
       containers:
       - name: test
         image: nginx:latest
-"""
-  
-  let start = current_time()
-  
-  for i in 0..999 {
-    case parse_yaml(yaml) {
-      | Ok(ast) -> lint_required_fields(ast)
-      | Err(_) -> []
+""";
+    
+    run_benchmark("lint_performance", 100, || {
+        match parse_yaml(yaml) {
+            Ast::ParseResult::Success(doc) => {
+                let _ = Kyaml::lint_k8s(yaml);
+            },
+            Ast::ParseResult::Error(_) => {}
+        }
+    })
+}
+
+// Benchmark: Query performance
+pub fn bench_query_performance() -> BenchmarkResult {
+    let yaml = """metadata:
+  name: test-pod
+  namespace: default
+  labels:
+    app: nginx
+    version: v1.0.0
+spec:
+  containers:
+  - name: nginx
+    image: nginx:latest
+    ports:
+    - containerPort: 80
+  - name: redis
+    image: redis:latest
+    ports:
+    - containerPort: 6379
+""";
+    
+    run_benchmark("query_performance", 1000, || {
+        let _ = Kyaml::query_yaml(yaml, "metadata.name");
+        let _ = Kyaml::query_yaml(yaml, "spec.containers.0.name");
+        let _ = Kyaml::query_yaml(yaml, "spec.containers.1.ports.0.containerPort");
+    })
+}
+
+// Run all benchmarks and print results
+pub fn run_all_benchmarks() -> () {
+    let benchmarks = [
+        bench_small_manifest,
+        bench_medium_manifest,
+        bench_large_manifest,
+        bench_lint_performance,
+        bench_query_performance,
+    ];
+    
+    println("Running benchmarks...");
+    println("");
+    
+    for bench in benchmarks {
+        let result = bench();
+        println(result.name ++ ":");
+        println("  Operations: " ++ int_to_string(result.operations));
+        println("  Duration: " ++ float_to_string(result.duration_seconds) ++ "s");
+        println("  Throughput: " ++ float_to_string(result.ops_per_second) ++ " ops/sec");
+        println("");
     }
-  }
-  
-  let end = current_time()
-  let duration = time_diff_seconds(start, end)
-  
-  -- Return lint operations per second
-  1000.0 / duration
 }

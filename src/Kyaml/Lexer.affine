@@ -1,376 +1,513 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
-
-// Kyaml.Lexer - Lexical analyzer for Kubernetes YAML
 //
-// This module provides the lexer (tokenizer) for KYAML.
-// It converts raw YAML text into a stream of tokens.
+// KYAML Lexer
+// Tokenizes YAML input into tokens for parsing
+// This is a simplified lexer for basic YAML parsing
 
 module Kyaml.Lexer
 
 import Kyaml.Ast
 
-// ============================================================================
-// Token Types
-// ============================================================================
-
-/**
- * Represents a token in the KYAML lexer.
- * Each token has a type and a source location.
- */
-type Token
-  = TKey of string * SourceLocation
-  | TColon of SourceLocation
-  | TDash of SourceLocation
-  | TScalar of string * SourceLocation
-  | TBlockStart of SourceLocation  // ---
-  | TBlockEnd of SourceLocation    // ...
-  | TNewline of SourceLocation
-  | TIndicators of SourceLocation  // Other YAML indicators: ?, :, -, etc.
-  | TComment of string * SourceLocation
-  | TAnchor of string * SourceLocation  // &anchor
-  | TAlias of string * SourceLocation    // *alias
-  | TTag of string * SourceLocation      // !!tag or !tag
-  | TEOF of SourceLocation
-
-// ============================================================================
-// Lexer State
-// ============================================================================
-
-/**
- * Represents the current state of the lexer.
- */
-type LexerState = {
-  input: string,       // Remaining input
-  position: int,       // Current position in input
-  line: int,          // Current line number
-  column: int,        // Current column number
-  indentStack: list<int>,  // Stack of indentation levels
-  currentIndent: int,  // Current indentation level
-  inComment: bool,    // Currently in a comment
-  inString: bool,     // Currently in a string
-  inTag: bool,        // Currently in a tag
-  anchorMap: Map<string, Node>  // Map of anchors to nodes (for alias resolution)
+// Token types
+pub enum Token {
+    // YAML structure
+    StreamStart,
+    StreamEnd,
+    DocumentStart,
+    DocumentEnd,
+    
+    // Block structure
+    BlockMappingStart,
+    BlockSequenceStart,
+    BlockEntry,
+    BlockScalar,
+    
+    // Flow structure
+    FlowMappingStart,
+    FlowMappingEnd,
+    FlowSequenceStart,
+    FlowSequenceEnd,
+    FlowEntry,
+    
+    // Scalar types
+    Scalar(String),
+    Integer(Int),
+    Float(Float),
+    Bool(Bool),
+    Null,
+    
+    // Special
+    Anchor(String),
+    Alias(String),
+    Tag(String),
+    
+    // Directives
+    YamlDirective(String),
+    TagDirective(String, String),
+    
+    // Comments and whitespace
+    Comment(String),
+    Newline,
+    Whitespace,
+    Indent,
+    Dedent,
+    
+    // Error
+    Error(String),
 }
 
-// ============================================================================
-// Initial State
-// ============================================================================
-
-/**
- * Create an initial lexer state from input.
- */
-initState :: string -> LexerState
-initState input = {
-  input: input,
-  position: 0,
-  line: 1,
-  column: 1,
-  indentStack: [0],
-  currentIndent: 0,
-  inComment: false,
-  inString: false,
-  inTag: false,
-  anchorMap: emptyMap
+// Token position information
+pub type TokenPosition = {
+    line: Int,
+    column: Int,
+    index: Int,
 }
 
-// ============================================================================
-// Character Classification
-// ============================================================================
-
-/**
- * Check if a character is whitespace.
- */
-isWhitespace :: char -> bool
-isWhitespace c = c == ' ' || c == '\t'
-
-/**
- * Check if a character is a newline.
- */
-isNewline :: char -> bool
-isNewline c = c == '\n' || c == '\r'
-
-/**
- * Check if a character is alphanumeric.
- */
-isAlnum :: char -> bool
-isAlnum c = isAlpha c || isDigit c
-
-/**
- * Check if a character is a letter.
- */
-isAlpha :: char -> bool
-isAlpha c = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c == '-'
-
-/**
- * Check if a character is a digit.
- */
-isDigit :: char -> bool
-isDigit c = c >= '0' && c <= '9'
-
-/**
- * Check if a character is a YAML indicator.
- */
-isIndicator :: char -> bool
-isIndicator c = c == ':' || c == '-' || c == '[' || c == ']' || c == '{' || c == '}' || c == ',' || c == '?' || c == '*' || c == '&' || c == '!' || c == '%' || c == '@' || c == '`'
-
-/**
- * Check if a character can start a scalar.
- */
-canStartScalar :: char -> bool
-canStartScalar c = isAlnum c || isIndicator c || c == '\"' || c == "'" || c == '|' || c == '>'
-
-// ============================================================================
-// Location Tracking
-// ============================================================================
-
-/**
- * Get the current source location from lexer state.
- */
-currentLocation :: LexerState -> SourceLocation
-currentLocation state = {
-  file: None,
-  line: state.line,
-  column: state.column,
-  offset: state.position
+// Token with position
+pub type PositionedToken = {
+    token: Token,
+    position: TokenPosition,
 }
 
-/**
- * Get the next character and advance the lexer.
- */
-nextChar :: LexerState -> Option<(char, LexerState)>
-nextChar state = 
-  if state.position >= length state.input then
-    None
-  else
-    let c = state.input[state.position]
-    let newState = if isNewline c then
-      {
-        input: state.input,
-        position: state.position + 1,
-        line: state.line + 1,
+// Lexer state
+pub type Lexer = {
+    input: String,
+    position: Int,
+    line: Int,
+    column: Int,
+    current_indent: Int,
+    indents: [Int],
+    flow_level: Int,
+    document_started: Bool,
+    tokens: [PositionedToken],
+}
+
+// Create a new lexer
+pub fn new(input: String) -> Lexer {
+    {
+        input: input,
+        position: 0,
+        line: 1,
         column: 1,
-        indentStack: state.indentStack,
-        currentIndent: state.currentIndent,
-        inComment: state.inComment,
-        inString: state.inString,
-        inTag: state.inTag,
-        anchorMap: state.anchorMap
-      }
-    else
-      {
-        input: state.input,
-        position: state.position + 1,
-        line: state.line,
-        column: state.column + 1,
-        indentStack: state.indentStack,
-        currentIndent: state.currentIndent,
-        inComment: state.inComment,
-        inString: state.inString,
-        inTag: state.inTag,
-        anchorMap: state.anchorMap
-      }
-    in Some (c, newState)
+        current_indent: 0,
+        indents: [],
+        flow_level: 0,
+        document_started: false,
+        tokens: [],
+    }
+}
 
-/**
- * Peek at the next character without consuming it.
- */
-peekChar :: LexerState -> Option<char>
-peekChar state = 
-  if state.position >= length state.input then
-    None
-  else
-    Some state.input[state.position]
+// Get current character
+fn current_char(lexer: &Lexer) -> Char {
+    if lexer.position < len(lexer.input) {
+        string_get(lexer.input, lexer.position)
+    } else {
+        '\0'
+    }
+}
 
-/**
- * Peek at the next N characters.
- */
-peekChars :: LexerState -> int -> Option<string>
-peekChars state n = 
-  if state.position + n > length state.input then
-    None
-  else
-    Some (substring state.input state.position (state.position + n))
+// Get next character
+fn peek_char(lexer: &Lexer) -> Char {
+    if lexer.position + 1 < len(lexer.input) {
+        string_get(lexer.input, lexer.position + 1)
+    } else {
+        '\0'
+    }
+}
 
-// ============================================================================
-// Token Extraction
-// ============================================================================
+// Get substring
+fn peek_n(lexer: &Lexer, n: Int) -> String {
+    if lexer.position + n <= len(lexer.input) {
+        string_sub(lexer.input, lexer.position, n)
+    } else {
+        ""
+    }
+}
 
-/**
- * Extract a sequence of characters that match a predicate.
- */
-extractWhile :: LexerState -> (char -> bool) -> (string, LexerState)
-extractWhile state pred = 
-  let rec loop acc s = 
-    match nextChar s with
-    | None -> (reverse acc, s)
-    | Some (c, newS) ->
-        if pred c then
-          loop (c :: acc) newS
-        else
-          (reverse acc, s)
-  in loop [] state
+// Advance to next character
+fn advance(lexer: &mut Lexer) {
+    let ch = current_char(lexer);
+    lexer.position = lexer.position + 1;
+    if ch == '\n' {
+        lexer.line = lexer.line + 1;
+        lexer.column = 1;
+    } else {
+        lexer.column = lexer.column + 1;
+    }
+}
 
-/**
- * Extract until a character is found.
- */
-extractUntil :: LexerState -> char -> (string, LexerState)
-extractUntil state stopChar = 
-  let rec loop acc s = 
-    match nextChar s with
-    | None -> (reverse acc, s)
-    | Some (c, newS) ->
-        if c == stopChar then
-          (reverse acc, newS)
-        else
-          loop (c :: acc) newS
-  in loop [] state
+// Emit a token
+fn emit(lexer: &mut Lexer, token: Token) {
+    let position = {
+        line: lexer.line,
+        column: lexer.column,
+        index: lexer.position,
+    };
+    let positioned_token = { token: token, position: position };
+    lexer.tokens = lexer.tokens ++ [positioned_token];
+}
 
-/**
- * Skip whitespace and newlines.
- */
-skipWhitespace :: LexerState -> LexerState
-skipWhitespace state = 
-  let rec loop s = 
-    match peekChar s with
-    | None -> s
-    | Some c ->
-        if isWhitespace c || isNewline c then
-          loop (advance s)
-        else
-          s
-  in loop state
+// Skip whitespace and handle indentation
+fn skip_whitespace(lexer: &mut Lexer) {
+    while lexer.position < len(lexer.input) {
+        let ch = current_char(lexer);
+        
+        if ch == ' ' || ch == '\t' {
+            // Count indentation at start of line
+            if lexer.column == 1 {
+                let mut indent = 0;
+                while lexer.position < len(lexer.input) && current_char(lexer) == ' ' {
+                    indent = indent + 1;
+                    advance(lexer);
+                }
+                
+                // Handle indentation changes
+                if indent > lexer.current_indent {
+                    lexer.current_indent = indent;
+                    lexer.indents = lexer.indents ++ [indent];
+                    emit(lexer, Token::Indent);
+                } else if indent < lexer.current_indent {
+                    // Dedent
+                    while len(lexer.indents) > 0 && indent < last(lexer.indents) {
+                        lexer.indents = remove_last(lexer.indents);
+                        emit(lexer, Token::Dedent);
+                    }
+                    lexer.current_indent = indent;
+                }
+                continue;
+            }
+            advance(lexer);
+        } else if ch == '\n' {
+            advance(lexer);
+            // Reset document state on newlines between documents
+            if len(lexer.tokens) == 0 || is_last_token_one_of(lexer, [Token::StreamStart, Token::DocumentEnd]) {
+                lexer.document_started = false;
+            }
+        } else {
+            break;
+        }
+    }
+}
 
-where advance s = match nextChar s with | Some (_, newS) -> newS | None -> s
+// Helper to get last element of array
+fn last<T>(arr: [T]) -> T {
+    if len(arr) > 0 {
+        arr[len(arr) - 1]
+    } else {
+        // This shouldn't happen if called correctly
+        panic("Called last on empty array")
+    }
+}
 
-// ============================================================================
-// Main Lexer Function
-// ============================================================================
+// Helper to remove last element of array
+fn remove_last<T>(arr: [T]) -> [T] {
+    if len(arr) > 0 {
+        let mut result = [];
+        for i in range(0, len(arr) - 1) {
+            result = result ++ [arr[i]];
+        }
+        result
+    } else {
+        []
+    }
+}
 
-/**
- * The main lexer function. Converts input string into a list of tokens.
- */
-lex :: string -> list<Token>
-lex input = 
-  let initialState = initState input
-  let rec loop state tokens = 
-    let loc = currentLocation state
-    match peekChar state with
-    | None -> reverse (TEOF loc :: tokens)
-    | Some c ->
-        // Skip whitespace
-        if isWhitespace c then
-          loop (skipWhitespace state) tokens
-        
-        // Handle comments
-        else if c == '#' then
-          let (commentText, newState) = extractUntil state '\n'
-          let commentToken = TComment commentText loc
-          loop newState (commentToken :: tokens)
-        
-        // Handle block start (---)
-        else if peekChars state 3 == Some("---") then
-          let newState = advanceN state 3
-          let blockStartLoc = currentLocation state
-          loop newState (TBlockStart blockStartLoc :: tokens)
-        
-        // Handle block end (...)
-        else if peekChars state 3 == Some("...") then
-          let newState = advanceN state 3
-          let blockEndLoc = currentLocation state
-          loop newState (TBlockEnd blockEndLoc :: tokens)
-        
-        // Handle newlines
-        else if isNewline c then
-          let newState = match nextChar state with | Some (_, s) -> s | None -> state
-          let newLoc = currentLocation newState
-          loop newState (TNewline newLoc :: tokens)
-        
-        // Handle colon
-        else if c == ':' then
-          let newState = match nextChar state with | Some (_, s) -> s | None -> state
-          let colonLoc = currentLocation state
-          loop newState (TColon colonLoc :: tokens)
-        
-        // Handle dash
-        else if c == '-' then
-          let newState = match nextChar state with | Some (_, s) -> s | None -> state
-          let dashLoc = currentLocation state
-          loop newState (TDash dashLoc :: tokens)
-        
-        // Handle keys (unquoted scalars that are keys)
-        else if isAlpha c then
-          let (keyText, newState) = extractWhile state isAlnumOrHyphen
-          let keyLoc = currentLocation state
-          loop newState (TKey keyText keyLoc :: tokens)
-        
-        // Handle quoted scalars
-        else if c == '\"' then
-          let (scalarText, newState) = extractQuotedString state '\"'
-          let scalarLoc = currentLocation state
-          loop newState (TScalar scalarText scalarLoc :: tokens)
-        
-        else if c == "'" then
-          let (scalarText, newState) = extractSingleQuotedString state
-          let scalarLoc = currentLocation state
-          loop newState (TScalar scalarText scalarLoc :: tokens)
-        
-        // Handle other indicators
-        else if isIndicator c then
-          let indicatorLoc = currentLocation state
-          let newState = match nextChar state with | Some (_, s) -> s | None -> state
-          loop newState (TIndicators indicatorLoc :: tokens)
-        
-        // Handle everything else as scalar
-        else
-          let (scalarText, newState) = extractScalar state
-          let scalarLoc = currentLocation state
-          loop newState (TScalar scalarText scalarLoc :: tokens)
-  
-  in loop initialState []
+// Check if last token is one of the given tokens
+fn is_last_token_one_of(lexer: &Lexer, tokens: [Token]) -> Bool {
+    if len(lexer.tokens) == 0 {
+        return false;
+    }
+    let last_token = last(lexer.tokens).token;
+    for t in tokens {
+        if last_token == t {
+            return true;
+        }
+    }
+    false
+}
 
-where
-  isAlnumOrHyphen c = isAlnum c || c == '-' || c == '_'
-  
-  advanceN state n = 
-    let rec loop s i = 
-      if i <= 0 then s
-      else match nextChar s with | Some (_, newS) -> loop newS (i - 1) | None -> s
-    in loop state n
-  
-  extractQuotedString state quote = 
-    // TODO: Implement proper quoted string extraction with escape handling
-    let rec loop acc s = 
-      match nextChar s with
-      | None -> (reverse acc, s)
-      | Some (c, newS) ->
-          if c == quote then
-            (reverse acc, newS)
-          else
-            loop (c :: acc) newS
-    in loop [] (match nextChar state with | Some (_, s) -> s | None -> state)
-  
-  extractSingleQuotedString state = 
-    // Single quotes don't have escaping, so just find the closing quote
-    let rec loop acc s = 
-      match nextChar s with
-      | None -> (reverse acc, s)
-      | Some (c, newS) ->
-          if c == "'" then
-            (reverse acc, newS)
-          else
-            loop (c :: acc) newS
-    in loop [] (match nextChar state with | Some (_, s) -> s | None -> state)
-  
-  extractScalar state = 
-    // Extract a scalar value (simplified for now)
-    let rec loop acc s = 
-      match peekChar s with
-      | None -> (reverse acc, s)
-      | Some c ->
-          if isWhitespace c || isNewline c || isIndicator c then
-            (reverse acc, s)
-          else
-            let newS = match nextChar s with | Some (_, ns) -> ns | None -> s
-            loop (c :: acc) newS
-    in loop [] state
+// Check if character is digit
+fn is_digit(c: Char) -> Bool {
+    c >= '0' && c <= '9'
+}
+
+// Check if character is whitespace
+fn is_whitespace(c: Char) -> Bool {
+    c == ' ' || c == '\t' || c == '\n' || c == '\r'
+}
+
+// Check if character is alphabetic
+fn is_alpha(c: Char) -> Bool {
+    (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_'
+}
+
+// Check if character is alphanumeric
+fn is_alnum(c: Char) -> Bool {
+    is_digit(c) || is_alpha(c)
+}
+
+// Convert string to integer
+fn to_int(s: String) -> Int {
+    let mut result = 0;
+    let mut sign = 1;
+    let mut i = 0;
+    
+    if len(s) > 0 && string_get(s, 0) == '-' {
+        sign = -1;
+        i = 1;
+    }
+    
+    while i < len(s) {
+        let ch = string_get(s, i);
+        if is_digit(ch) {
+            result = result * 10 + (char_to_int(ch) - char_to_int('0'));
+        } else {
+            break;
+        }
+        i = i + 1;
+    }
+    
+    result * sign
+}
+
+// Convert string to float
+fn to_float(s: String) -> Float {
+    // Simplified - for now just handle integers
+    float_from_int(to_int(s))
+}
+
+// Main tokenization method
+pub fn tokenize(lexer: &mut Lexer) -> [PositionedToken] {
+    lexer.tokens = [];
+    emit(lexer, Token::StreamStart);
+    
+    // Handle document start marker
+    if peek_n(lexer, 3) == "---" {
+        lexer.position = lexer.position + 3;
+        lexer.column = lexer.column + 3;
+        emit(lexer, Token::DocumentStart);
+        lexer.document_started = true;
+    }
+    
+    // Main loop
+    while lexer.position < len(lexer.input) {
+        skip_whitespace(lexer);
+        
+        if lexer.position >= len(lexer.input) {
+            break;
+        }
+        
+        let ch = current_char(lexer);
+        
+        // Handle document end
+        if ch == '.' && peek_n(lexer, 3) == "..." {
+            lexer.position = lexer.position + 3;
+            lexer.column = lexer.column + 3;
+            emit(lexer, Token::DocumentEnd);
+            lexer.document_started = false;
+            continue;
+        }
+        
+        match ch {
+            '#' => {
+                // Comment
+                advance(lexer);
+                let mut comment = "";
+                while lexer.position < len(lexer.input) && current_char(lexer) != '\n' {
+                    comment = comment ++ string_from_char(current_char(lexer));
+                    advance(lexer);
+                }
+                emit(lexer, Token::Comment(comment));
+            },
+            '-' => {
+                advance(lexer);
+                if current_char(lexer) == ' ' || current_char(lexer) == '\n' || current_char(lexer) == '\t' {
+                    emit(lexer, Token::BlockEntry);
+                } else {
+                    // Could be document separator
+                    if current_char(lexer) == '-' && peek_char(lexer) == '-' {
+                        advance(lexer);
+                        advance(lexer);
+                        emit(lexer, Token::DocumentEnd);
+                        lexer.document_started = false;
+                    } else {
+                        emit(lexer, Token::BlockEntry);
+                    }
+                }
+            },
+            ':' => {
+                advance(lexer);
+                emit(lexer, Token::BlockMappingStart);
+            },
+            '[' => {
+                advance(lexer);
+                lexer.flow_level = lexer.flow_level + 1;
+                emit(lexer, Token::FlowSequenceStart);
+            },
+            ']' => {
+                advance(lexer);
+                lexer.flow_level = lexer.flow_level - 1;
+                emit(lexer, Token::FlowSequenceEnd);
+            },
+            '{' => {
+                advance(lexer);
+                lexer.flow_level = lexer.flow_level + 1;
+                emit(lexer, Token::FlowMappingStart);
+            },
+            '}' => {
+                advance(lexer);
+                lexer.flow_level = lexer.flow_level - 1;
+                emit(lexer, Token::FlowMappingEnd);
+            },
+            ',' => {
+                advance(lexer);
+                emit(lexer, Token::FlowEntry);
+            },
+            '"' => {
+                advance(lexer);
+                let mut scalar = "";
+                while lexer.position < len(lexer.input) && current_char(lexer) != '"' {
+                    if current_char(lexer) == '\\' {
+                        advance(lexer);
+                        if current_char(lexer) == '"' {
+                            scalar = scalar ++ "\"";
+                        } else if current_char(lexer) == '\\' {
+                            scalar = scalar ++ "\\";
+                        } else {
+                            scalar = scalar ++ string_from_char(current_char(lexer));
+                        }
+                    } else {
+                        scalar = scalar ++ string_from_char(current_char(lexer));
+                    }
+                    advance(lexer);
+                }
+                if current_char(lexer) == '"' {
+                    advance(lexer);
+                }
+                emit(lexer, Token::Scalar(scalar));
+            },
+            '\'' => {
+                advance(lexer);
+                let mut scalar = "";
+                while lexer.position < len(lexer.input) && current_char(lexer) != '\'' {
+                    if current_char(lexer) == '\\' && peek_char(lexer) == '\'' {
+                        advance(lexer);
+                        advance(lexer);
+                        scalar = scalar ++ "'\";
+                    } else {
+                        scalar = scalar ++ string_from_char(current_char(lexer));
+                        advance(lexer);
+                    }
+                }
+                if current_char(lexer) == '\'' {
+                    advance(lexer);
+                }
+                emit(lexer, Token::Scalar(scalar));
+            },
+            '&' => {
+                advance(lexer);
+                let mut anchor = "";
+                while lexer.position < len(lexer.input) && is_alnum(current_char(lexer)) {
+                    anchor = anchor ++ string_from_char(current_char(lexer));
+                    advance(lexer);
+                }
+                emit(lexer, Token::Anchor(anchor));
+            },
+            '*' => {
+                advance(lexer);
+                let mut alias = "";
+                while lexer.position < len(lexer.input) && is_alnum(current_char(lexer)) {
+                    alias = alias ++ string_from_char(current_char(lexer));
+                    advance(lexer);
+                }
+                emit(lexer, Token::Alias(alias));
+            },
+            '!' => {
+                advance(lexer);
+                if current_char(lexer) == '<' {
+                    advance(lexer);
+                    let mut tag = "";
+                    while lexer.position < len(lexer.input) && current_char(lexer) != '>' {
+                        tag = tag ++ string_from_char(current_char(lexer));
+                        advance(lexer);
+                    }
+                    if current_char(lexer) == '>' {
+                        advance(lexer);
+                    }
+                    emit(lexer, Token::Tag(tag, ""));
+                } else {
+                    let mut tag = "";
+                    while lexer.position < len(lexer.input) && is_alnum(current_char(lexer)) {
+                        tag = tag ++ string_from_char(current_char(lexer));
+                        advance(lexer);
+                    }
+                    emit(lexer, Token::Tag(tag, ""));
+                }
+            },
+            _ => {
+                if is_digit(ch) || (ch == '-' && is_digit(peek_char(lexer))) {
+                    // Number
+                    let start = lexer.position;
+                    if ch == '-' {
+                        advance(lexer);
+                    }
+                    while lexer.position < len(lexer.input) && is_digit(current_char(lexer)) {
+                        advance(lexer);
+                    }
+                    if current_char(lexer) == '.' {
+                        advance(lexer);
+                        while lexer.position < len(lexer.input) && is_digit(current_char(lexer)) {
+                            advance(lexer);
+                        }
+                        let num_str = string_sub(lexer.input, start, lexer.position - start);
+                        emit(lexer, Token::Float(to_float(num_str)));
+                    } else {
+                        let num_str = string_sub(lexer.input, start, lexer.position - start);
+                        emit(lexer, Token::Integer(to_int(num_str)));
+                    }
+                } else if ch == 't' && peek_n(lexer, 4) == "true" {
+                    lexer.position = lexer.position + 4;
+                    lexer.column = lexer.column + 4;
+                    emit(lexer, Token::Bool(true));
+                } else if ch == 'f' && peek_n(lexer, 5) == "false" {
+                    lexer.position = lexer.position + 5;
+                    lexer.column = lexer.column + 5;
+                    emit(lexer, Token::Bool(false));
+                } else if ch == 'n' && peek_n(lexer, 4) == "null" {
+                    lexer.position = lexer.position + 4;
+                    lexer.column = lexer.column + 4;
+                    emit(lexer, Token::Null);
+                } else {
+                    // Unquoted scalar
+                    let start = lexer.position;
+                    while lexer.position < len(lexer.input) {
+                        let ch = current_char(lexer);
+                        if is_whitespace(ch) || ch == ':' || ch == ',' || ch == ']' || ch == '}' || ch == '#' {
+                            break;
+                        }
+                        advance(lexer);
+                    }
+                    let scalar = string_sub(lexer.input, start, lexer.position - start);
+                    if scalar != "" {
+                        emit(lexer, Token::Scalar(scalar));
+                    }
+                }
+            }
+        }
+    }
+    
+    // Final document end if needed
+    if lexer.document_started {
+        emit(lexer, Token::DocumentEnd);
+        lexer.document_started = false;
+    }
+    
+    emit(lexer, Token::StreamEnd);
+    lexer.tokens
+}
+
+// Convert char to string
+fn string_from_char(c: Char) -> String {
+    int_to_string(char_to_int(c))
+}

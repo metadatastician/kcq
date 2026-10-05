@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 //
-// Kyaml - Main module for Kubernetes YAML processing
-//
-// This is the main entry point for the kcq library.
-// It provides a high-level API for parsing, linting, and querying KYAML.
+// KYAML — Main module for Kubernetes YAML processing
+// High-level API for parsing, linting, and querying Kubernetes manifests
 
 module Kyaml
 
@@ -13,463 +11,480 @@ import Kyaml.Lexer
 import Kyaml.Parser
 import Kyaml.Lint.RequiredFields
 
-// ============================================================================
-// Public API Types
-// ============================================================================
+// Main KYAML processing functions
 
-/**
- * Represents the result of parsing KYAML.
- */
-type ParseResult
-  = ParseSuccess of KYamlFile
-  | ParseFailure of list<ParseError>
-
-/**
- * Represents the result of linting.
- */
-type LintResult = {
-  file: string,
-  docs: list<LintedDoc>
+/// Parse YAML string and return AST document
+pub fn parse_yaml(input: &str) -> Ast::ParseResult {
+    Parser::parse_yaml(input)
 }
 
-/**
- * Represents a linted document.
- */
-type LintedDoc = {
-  doc: KYamlDoc,
-  issues: list<LintIssue>
+/// Parse YAML string and return Kubernetes resources
+pub fn parse_k8s(input: &str) -> [Ast::K8sResource] {
+    Parser::parse_k8s_resources(input)
 }
 
-/**
- * Combined lint issue type (from all rules).
- */
-type LintIssue = {
-  ruleId: string,
-  severity: Severity,
-  message: string,
-  path: list<string>,
-  location: Option<SourceLocation>
+/// Validate YAML syntax without full parsing
+pub fn validate_yaml_syntax(input: &str) -> Bool {
+    let mut lexer = Lexer::new(input);
+    let tokens = Lexer::tokenize(&mut lexer);
+    
+    // Check for error tokens
+    for token in tokens {
+        match token.token {
+            Token::Error(_) => return false,
+            _ => continue,
+        }
+    }
+    
+    true
 }
 
-/**
- * Severity levels for lint issues.
- */
-type Severity
-  = Error
-  | Warning
-  | Info
+/// Lint Kubernetes YAML with all available rules
+pub fn lint_k8s(yaml: &str) -> [Ast::LintIssue] {
+    let mut issues = [];
+    
+    // Parse the YAML first
+    match parse_yaml(yaml) {
+        Ast::ParseResult::Success(doc) => {
+            // Apply required fields lint rule
+            let required_fields_issues = RequiredFields::lint_required_fields(&doc);
+            issues = issues ++ required_fields_issues;
+        },
+        Ast::ParseResult::Error(err) => {
+            issues = issues ++ [{
+                rule: "syntax-error",
+                message: "YAML syntax error: " ++ err.message,
+                severity: Ast::LintSeverity::Error,
+                location: {
+                    line: err.line,
+                    column: err.column,
+                    path: None,
+                },
+            }];
+        }
+    }
+    
+    issues
+}
 
-// ============================================================================
-// Public API Functions
-// ============================================================================
+/// Query YAML with a path expression (simplified jmespath-like)
+pub fn query_yaml(yaml: &str, path: &str) -> Option<Ast::YamlValue> {
+    match parse_yaml(yaml) {
+        Ast::ParseResult::Success(doc) => {
+            query_value(&doc.root, path)
+        },
+        Ast::ParseResult::Error(_) => None,
+    }
+}
 
-/**
- * Parse KYAML from a string.
- * Returns ParseResult containing either the parsed KYamlFile or parse errors.
- */
-parse :: string -> ParseResult
-parse input = 
-  case parseKyaml input of
-    Ok file -> ParseSuccess file
-    Err e -> ParseFailure [e]
+/// Query a parsed value with a path expression
+fn query_value(value: &Ast::YamlValue, path: &str) -> Option<Ast::YamlValue> {
+    // Split path by dots
+    let parts = split_path(path);
+    
+    if len(parts) == 0 {
+        return Some(value.clone());
+    }
+    
+    let mut current = value;
+    
+    for part in parts {
+        current = match current {
+            Ast::YamlValue::Mapping(map) => {
+                if map.contains(part) {
+                    map.get(part)
+                } else {
+                    None
+                }
+            },
+            Ast::YamlValue::Sequence(seq) => {
+                // Try to parse part as index
+                match parse_int(part) {
+                    Some(index) => {
+                        if index >= 0 && index < len(seq) {
+                            Some(seq[index])
+                        } else {
+                            None
+                        }
+                    },
+                    None => None,
+                }
+            },
+            _ => None,
+        };
+        
+        // If we hit None, the path doesn't exist
+        if current == None {
+            return None;
+        }
+    }
+    
+    current
+}
 
-/**
- * Parse KYAML from a file.
- * Reads the file and parses its contents.
- */
-parseFile :: string -> IO<ParseResult>
-parseFile path = do
-  content <- readFile path
-  pure (parse content)
+// Split a path string by dots
+fn split_path(path: &str) -> [String] {
+    let mut parts = [];
+    let mut current = "";
+    
+    for ch in path {
+        if ch == '.' {
+            parts = parts ++ [current];
+            current = "";
+        } else {
+            current = current ++ string_from_char(ch);
+        }
+    }
+    
+    if current != "" {
+        parts = parts ++ [current];
+    }
+    
+    parts
+}
 
-/**
- * Lint a KYAML document.
- * Applies all registered lint rules.
- */
-lint :: KYamlDoc -> list<LintIssue>
-lint doc = 
-  let rules = [
-    Kyaml.Lint.RequiredFields.rule
-    // Add more rules here
-  ]
-  let allIssues = []
-  let rec loop remainingRules issues = 
-    case remainingRules of
-      [] -> issues
-      (rule :: rest) ->
-        let ruleIssues = rule doc
-        loop rest (issues ++ ruleIssues)
-  in
-    loop rules allIssues
+// Parse a string as integer
+fn parse_int(s: String) -> Option<Int> {
+    let mut result = 0;
+    let mut sign = 1;
+    let mut i = 0;
+    
+    if len(s) > 0 && string_get(s, 0) == '-' {
+        sign = -1;
+        i = 1;
+    }
+    
+    while i < len(s) {
+        let ch = string_get(s, i);
+        if ch >= '0' && ch <= '9' {
+            result = result * 10 + (char_to_int(ch) - char_to_int('0'));
+        } else {
+            return None;
+        }
+        i = i + 1;
+    }
+    
+    Some(result * sign)
+}
 
-/**
- * Lint a KYAML file (multi-document).
- */
-lintFile :: string -> list<LintIssue>
-lintFile input = 
-  case parse input of
-    ParseSuccess file ->
-      let docIssues = map (\doc -> lint doc) file
-      concat docIssues
-    ParseFailure _ ->
-      []  // Can't lint if parse fails
+/// Get a value from YAML with a simple path
+pub fn get_yaml(yaml: &str, path: &str) -> Option<Ast::YamlValue> {
+    query_yaml(yaml, path)
+}
 
-/**
- * Query a KYAML document with a path expression.
- * Simple path query support (e.g., ".spec.replicas").
- */
-query :: KYamlDoc -> string -> Option<Node>
-query doc path = 
-  case doc of
-    KResource resource ->
-      queryResource resource path
-    KGeneric node ->
-      queryNode node (splitPath path)
-
-where
-  splitPath path = 
-    if path == "" || path == "." then []
-    else if path[0] == '.' then
-      split (substring path 1 (length path)) "."
-    else
-      split path "."
-  
-  queryResource resource path = 
-    let node = resourceToNode resource
-    queryNode node (splitPath path)
-  
-  resourceToNode resource = NMapping (emptyMap
-    .insert "apiVersion" (NScalar (SString resource.apiVersion))
-    .insert "kind" (NScalar (SString resource.kind))
-    .insert "metadata" (metadataToNode resource.metadata)
-    .insert "spec" resource.spec
-    .insertIfSome "status" resource.status
-  )
-  
-  metadataToNode metadata = NMapping (emptyMap
-    .insert "name" (NScalar (SString metadata.name))
-    .insertIfSome "namespace" (metadata.namespace |> map (\ns -> NScalar (SString ns)))
-    .insert "labels" (mapToNode metadata.labels)
-    .insert "annotations" (mapToNode metadata.annotations)
-  )
-  
-  mapToNode m = NMapping (foldl (\acc, k, v -> acc.insert k (NScalar (SString v))) emptyMap m)
-  
-  insertIfSome m key optVal = 
-    case optVal of
-      Some val -> m.insert key val
-      None -> m
-  
-  queryNode node pathParts = 
-    let rec loop current remaining = 
-      case remaining of
-        [] -> Some current
-        (part :: rest) ->
-          case current of
-            NScalar _ -> None  // Can't go deeper
-            NSequence list ->
-              // Try to parse part as index
-              if isInteger part then
-                let idx = parseInt part
-                if idx >= 0 && idx < length list then
-                  loop list[idx] rest
-                else
-                  None
-              else if part == "[]" then
-                // Apply to all elements
-                let results = map (\item -> loop item rest) list
-                if all isSome results then
-                  Some (NSequence (map fromSome results))
-                else
-                  None
-              else
+/// Set a value in YAML (returns modified YAML string)
+pub fn set_yaml(yaml: &str, path: &str, value: Ast::YamlValue) -> Option<String> {
+    match parse_yaml(yaml) {
+        Ast::ParseResult::Success(mut doc) => {
+            if set_value(&mut doc.root, path, value) {
+                // Convert back to YAML string
+                Some(format_yaml(&doc.root))
+            } else {
                 None
-            NMapping m ->
-              loop (m.lookup part |> default NScalar SNull) rest
-            _ -> None  // For now, simplified
-    in
-      loop node pathParts
-  
-  fromSome opt = case opt of | Some v -> v | None -> NScalar SNull
-  
-  isInteger s = 
-    if s == "" then false
-    else all (\c -> c >= '0' && c <= '9') s[0..length(s)-1] || 
-         (s[0] == '-' && all (\c -> c >= '0' && c <= '9') s[1..length(s)-1])
-  
-  parseInt s = 
-    if s == "" then 0
-    else if s[0] == '-' then -parseInt s[1..length(s)-1]
-    else foldl (\acc, c -> acc * 10 + (ord c - ord '0')) 0 s
+            }
+        },
+        Ast::ParseResult::Error(_) => None,
+    }
+}
 
-// ============================================================================
-// Set/Update Operations
-// ============================================================================
+/// Set a value in a YAML structure
+fn set_value(root: &mut Ast::YamlValue, path: &str, value: Ast::YamlValue) -> Bool {
+    let parts = split_path(path);
+    
+    if len(parts) == 0 {
+        *root = value;
+        return true;
+    }
+    
+    let mut current = root;
+    
+    // Navigate to the parent of the target
+    for i in range(0, len(parts) - 1) {
+        let part = parts[i];
+        current = match current {
+            Ast::YamlValue::Mapping(map) => {
+                if !map.contains(part) {
+                    // Create an empty mapping for missing path segments
+                    map{part} = Ast::YamlValue::Mapping({});
+                }
+                map.get_mut(part)
+            },
+            Ast::YamlValue::Sequence(seq) => {
+                match parse_int(part) {
+                    Some(index) => {
+                        if index >= len(seq) {
+                            // Extend the sequence if needed
+                            while len(seq) <= index {
+                                seq = seq ++ [Ast::YamlValue::Null];
+                            }
+                        }
+                        Some(&mut seq[index])
+                    },
+                    None => return false,
+                }
+            },
+            _ => return false,
+        };
+        
+        if current == None {
+            return false;
+        }
+    }
+    
+    // Set the final value
+    let last_part = parts[len(parts) - 1];
+    
+    match current {
+        Some(Ast::YamlValue::Mapping(map)) => {
+            map{last_part} = value;
+            true
+        },
+        Some(Ast::YamlValue::Sequence(seq)) => {
+            match parse_int(last_part) {
+                Some(index) => {
+                    if index < len(seq) {
+                        seq[index] = value;
+                        true
+                    } else {
+                        false
+                    }
+                },
+                None => false,
+            }
+        },
+        _ => false,
+    }
+}
 
-/**
- * Set a value at a path in a KYAML document.
- * Returns a new document with the value set.
- */
-set :: KYamlDoc -> string -> Node -> KYamlDoc
-set doc path value = 
-  case doc of
-    KResource resource ->
-      KResource (setResource resource path value)
-    KGeneric node ->
-      KGeneric (setNode node (splitPath path) value)
+/// Delete a value from YAML
+pub fn del_yaml(yaml: &str, path: &str) -> Option<String> {
+    match parse_yaml(yaml) {
+        Ast::ParseResult::Success(mut doc) => {
+            if delete_value(&mut doc.root, path) {
+                Some(format_yaml(&doc.root))
+            } else {
+                None
+            }
+        },
+        Ast::ParseResult::Error(_) => None,
+    }
+}
 
-where
-  setResource resource path value = 
-    let newSpec = setNode resource.spec (splitPathWithoutRoot path) value
-    { resource | spec = newSpec }
-  
-  splitPathWithoutRoot path = 
-    let parts = splitPath path
-    case parts of
-      [] -> []
-      (_ :: rest) -> rest
-  
-  setNode node pathParts value = 
-    let rec loop current remaining = 
-      case remaining of
-        [] -> value
-        [part] ->
-          case current of
-            NMapping m ->
-              NMapping (m.insert part value)
-            NSequence list ->
-              if isInteger part then
-                let idx = parseInt part
-                if idx >= 0 && idx < length list then
-                  NSequence (setIndex list idx value)
-                else
-                  current  // Can't set, return original
-              else if part == "[]" then
-                // Append to all elements? Or replace all?
-                current
-              else
-                current
-            _ -> current
-        (part :: rest) ->
-          case current of
-            NMapping m ->
-              let newValue = loop (m.lookupDefault (NScalar SNull) part) rest
-              NMapping (m.insert part newValue)
-            NSequence list ->
-              if isInteger part then
-                let idx = parseInt part
-                if idx >= 0 && idx < length list then
-                  let newItem = loop list[idx] rest
-                  NSequence (setIndex list idx newItem)
-                else
-                  current
-              else if part == "[]" then
-                // Apply to all elements
-                NSequence (map (\item -> loop item rest) list)
-              else
-                current
-            _ -> current
-    in
-      loop node pathParts
-  
-  setIndex list idx value = 
-    let rec loop acc remaining = 
-      case remaining of
-        [] -> reverse acc
-        (i, x) :: rest ->
-          if i == idx then
-            loop (value :: acc) rest
-          else
-            loop (x :: acc) rest
-    in
-      let indexed = zip [0..length(list)-1] list
-      loop [] indexed
+/// Delete a value from a YAML structure
+fn delete_value(root: &mut Ast::YamlValue, path: &str) -> Bool {
+    let parts = split_path(path);
+    
+    if len(parts) == 0 {
+        return false;
+    }
+    
+    if len(parts) == 1 {
+        // Special case: delete from root - not really possible
+        *root = Ast::YamlValue::Null;
+        return true;
+    }
+    
+    let mut parent = root;
+    
+    // Navigate to the parent
+    for i in range(0, len(parts) - 1) {
+        let part = parts[i];
+        parent = match parent {
+            Ast::YamlValue::Mapping(map) => {
+                if !map.contains(part) {
+                    return false;
+                }
+                Some(map.get_mut(part))
+            },
+            Ast::YamlValue::Sequence(seq) => {
+                match parse_int(part) {
+                    Some(index) => {
+                        if index < len(seq) {
+                            Some(&mut seq[index])
+                        } else {
+                            return false;
+                        }
+                    },
+                    None => return false,
+                }
+            },
+            _ => return false,
+        };
+        
+        if parent == None {
+            return false;
+        }
+    }
+    
+    // Delete the final value
+    let last_part = parts[len(parts) - 1];
+    
+    match parent {
+        Some(Ast::YamlValue::Mapping(map)) => {
+            // Create a new map without the key
+            let mut new_map = {};
+            for key in map.keys() {
+                if key != last_part {
+                    new_map{key} = map{key};
+                }
+            }
+            *map = new_map;
+            true
+        },
+        Some(Ast::YamlValue::Sequence(seq)) => {
+            match parse_int(last_part) {
+                Some(index) => {
+                    if index < len(seq) {
+                        // Remove element at index
+                        let mut new_seq = [];
+                        for i in range(0, len(seq)) {
+                            if i != index {
+                                new_seq = new_seq ++ [seq[i]];
+                            }
+                        }
+                        *seq = new_seq;
+                        true
+                    } else {
+                        false
+                    }
+                },
+                None => false,
+            }
+        },
+        _ => false,
+    }
+}
 
-// ============================================================================
-// Delete Operations
-// ============================================================================
+/// Format YAML value back to string
+fn format_yaml(value: &Ast::YamlValue) -> String {
+    format_yaml_internal(value, 0)
+}
 
-/**
- * Delete a field at a path in a KYAML document.
- * Returns a new document with the field removed.
- */
-delete :: KYamlDoc -> string -> KYamlDoc
-delete doc path = 
-  case doc of
-    KResource resource ->
-      KResource (deleteResource resource path)
-    KGeneric node ->
-      KGeneric (deleteNode node (splitPath path))
+fn format_yaml_internal(value: &Ast::YamlValue, indent: Int) -> String {
+    let indent_str = string_repeat(" ", indent);
+    
+    match value {
+        Ast::YamlValue::Null => "null",
+        Ast::YamlValue::Bool(b) => if b { "true" } else { "false" },
+        Ast::YamlValue::Int(i) => int_to_string(i),
+        Ast::YamlValue::Float(f) => float_to_string(f),
+        Ast::YamlValue::String(s) => {
+            // Check if string needs quoting
+            if s == "" || contains_whitespace(s) || s == "true" || s == "false" || s == "null" || s == "" {
+                "\"" ++ escape_string(s) ++ "\""
+            } else {
+                s
+            }
+        },
+        Ast::YamlValue::Sequence(seq) => {
+            if len(seq) == 0 {
+                "[]"
+            } else {
+                let mut result = "\n";
+                for item in seq {
+                    result = result ++ indent_str ++ "- " ++ format_yaml_internal(item, 0) ++ "\n";
+                }
+                result
+            }
+        },
+        Ast::YamlValue::Mapping(map) => {
+            if len(map.keys()) == 0 {
+                "{}"
+            } else {
+                let mut result = "";
+                for key in map.keys() {
+                    let val = map{key};
+                    let formatted_val = format_yaml_internal(val, indent + 2);
+                    if starts_with(formatted_val, "\n") {
+                        result = result ++ indent_str ++ key ++ ":" ++ formatted_val ++ "\n";
+                    } else {
+                        result = result ++ indent_str ++ key ++ ": " ++ formatted_val ++ "\n";
+                    }
+                }
+                result
+            }
+        },
+        Ast::YamlValue::Anchor(s) => "&" ++ s,
+        Ast::YamlValue::Alias(s) => "*" ++ s,
+        Ast::YamlValue::Tag(handle, suffix) => "!<" ++ handle ++ ">" ++ suffix,
+    }
+}
 
-where
-  deleteResource resource path = 
-    let newSpec = deleteNode resource.spec (splitPathWithoutRoot path) 
-    { resource | spec = newSpec }
-  
-  deleteNode node pathParts = 
-    let rec loop current remaining = 
-      case remaining of
-        [] -> current  // Nothing to delete at this level
-        [part] ->
-          case current of
-            NMapping m ->
-              NMapping (m.remove part)
-            NSequence list ->
-              if isInteger part then
-                let idx = parseInt part
-                if idx >= 0 && idx < length list then
-                  NSequence (removeIndex list idx)
-                else
-                  current
-              else
-                current
-            _ -> current
-        (part :: rest) ->
-          case current of
-            NMapping m ->
-              let newValue = loop (m.lookupDefault (NScalar SNull) part) rest
-              // If newValue is SNull, remove the key
-              if newValue == NScalar SNull then
-                NMapping (m.remove part)
-              else
-                NMapping (m.insert part newValue)
-            NSequence list ->
-              if isInteger part then
-                let idx = parseInt part
-                if idx >= 0 && idx < length list then
-                  let newItem = loop list[idx] rest
-                  if newItem == NScalar SNull then
-                    NSequence (removeIndex list idx)
-                  else
-                    NSequence (setIndex list idx newItem)
-                else
-                  current
-              else if part == "[]" then
-                // Apply to all elements
-                NSequence (map (\item -> loop item rest) list)
-              else
-                current
-            _ -> current
-    in
-      loop node pathParts
-  
-  removeIndex list idx = 
-    let rec loop acc remaining i = 
-      case remaining of
-        [] -> reverse acc
-        (x) :: rest ->
-          if i == idx then
-            loop acc rest (i + 1)
-          else
-            loop (x :: acc) rest (i + 1)
-    in
-      loop [] list 0
+// Check if string contains whitespace
+fn contains_whitespace(s: String) -> Bool {
+    for ch in s {
+        if ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' {
+            return true;
+        }
+    }
+    false
+}
 
-// ============================================================================
-// Utility Functions
-// ============================================================================
+// Escape string for quoting
+fn escape_string(s: String) -> String {
+    let mut result = "";
+    for ch in s {
+        match ch {
+            '\\' => result = result ++ "\\\\",
+            '"' => result = result ++ "\\\"",
+            '\n' => result = result ++ "\\n",
+            '\t' => result = result ++ "\\t",
+            _ => result = result ++ string_from_char(ch),
+        }
+    }
+    result
+}
 
-/**
- * Convert KYAML to YAML string.
- * Pretty-prints the KYAML structure.
- */
-toYaml :: KYamlFile -> string
-toYaml file = 
-  join "\n---\n" (map docToYaml file)
+// Repeat string
+fn string_repeat(s: String, n: Int) -> String {
+    let mut result = "";
+    for _ in range(0, n) {
+        result = result ++ s;
+    }
+    result
+}
 
-where
-  docToYaml doc = 
-    case doc of
-      KResource resource -> resourceToYaml resource
-      KGeneric node -> nodeToYaml node 0
-  
-  resourceToYaml resource = 
-    let m = emptyMap
-      .insert "apiVersion" (NScalar (SString resource.apiVersion))
-      .insert "kind" (NScalar (SString resource.kind))
-      .insert "metadata" (metadataToNode resource.metadata)
-      .insert "spec" resource.spec
-    in
-      case resource.status of
-        Some status -> nodeToYaml (NMapping (m.insert "status" status)) 0
-        None -> nodeToYaml (NMapping m) 0
-  
-  nodeToYaml node indentLevel = 
-    let indent = repeat " " indentLevel
-    let childIndent = repeat " " (indentLevel + 2)
-    case node of
-      NScalar scalar -> indent ++ scalarToYaml scalar
-      NSequence list ->
-        if list == [] then
-          indent ++ "[]"
-        else
-          foldl (\acc, item -> acc ++ childIndent ++ "- " ++ nodeToYaml item (indentLevel + 4) ++ "\n") (indent ++ "\n") list
-      NMapping m ->
-        if m.isEmpty then
-          indent ++ "{}"
-        else
-          foldl (\acc, k, v -> 
-            acc ++ indent ++ k ++ ": " ++ 
-            if isScalarOrEmpty v then
-              nodeToYaml v (indentLevel + length k + 2)
-            else
-              "\n" ++ nodeToYaml v (indentLevel + 2)
-            ++ "\n") "" m.toList
-      _ -> "# Complex node (not implemented)"
-  
-  scalarToYaml scalar = 
-    case scalar of
-      SString s -> 
-        if needsQuotes s then
-          '\"' ++ escapeString s ++ '\"'
-        else
-          s
-      SInt i -> intToString i
-      SFloat f -> floatToString f
-      SBool b -> if b then "true" else "false"
-      SNull -> "null"
-      STimestamp ts -> '\"' ++ ts ++ '\"'
-  
-  needsQuotes s = 
-    s == "" || 
-    s[0] == '#' || s[0] == '&' || s[0] == '*' || s[0] == '!' || 
-    s[0] == '%' || s[0] == '@' || s[0] == '`' ||
-    s[0] == '\"' || s[0] == "'" ||
-    s[0] == '\n' ||
-    contains s ':' || contains s ' ' || contains s '\t' ||
-    contains s '\n' || contains s '#' ||
-    s == "true" || s == "false" || s == "null" || s == "~"
-  
-  escapeString s = 
-    foldl (\acc, c -> 
-      if c == '\"' then acc ++ "\\\""
-      else if c == '\n' then acc ++ "\\n"
-      else if c == '\t' then acc ++ "\\t"
-      else acc ++ stringOfChar c) "" s
-  
-  isScalarOrEmpty node = 
-    case node of
-      NScalar _ -> true
-      NSequence [] -> true
-      NMapping m -> m.isEmpty
-      _ -> false
-  
-  // Simplified - in real implementation, use proper int/float to string
-  intToString i = 
-    if i == 0 then "0"
-    else if i < 0 then "-" ++ intToString (-i)
-    else intToStringHelper i ""
-  
-  intToStringHelper i acc = 
-    if i == 0 then 
-      if acc == "" then "0" else acc
-    else
-      intToStringHelper (i / 10) (stringOfChar (charOfDigit (i % 10)) ++ acc)
-  
-  charOfDigit d = 
-    if d == 0 then '0' else if d == 1 then '1' else if d == 2 then '2' 
-    else if d == 3 then '3' else if d == 4 then '4' else if d == 5 then '5'
-    else if d == 6 then '6' else if d == 7 then '7' else if d == 8 then '8'
-    else '9'
-  
-  floatToString f = "0.0"  // Simplified for now
+// Check if string starts with prefix
+fn starts_with(s: String, prefix: String) -> Bool {
+    if len(prefix) > len(s) {
+        false
+    } else {
+        string_sub(s, 0, len(prefix)) == prefix
+    }
+}
+
+// Convert char to string
+fn string_from_char(c: Char) -> String {
+    int_to_string(char_to_int(c))
+}
+
+/// Pretty print YAML with consistent formatting
+pub fn pretty_print_yaml(yaml: &str) -> Option<String> {
+    match parse_yaml(yaml) {
+        Ast::ParseResult::Success(doc) => Some(format_yaml(&doc.root)),
+        Ast::ParseResult::Error(_) => None,
+    }
+}
+
+/// Check if YAML contains Kubernetes resources
+pub fn is_k8s_yaml(yaml: &str) -> Bool {
+    match parse_yaml(yaml) {
+        Ast::ParseResult::Success(doc) => {
+            !is_empty_resources(doc.resources) || is_k8s_resource(&doc.root)
+        },
+        Ast::ParseResult::Error(_) => false,
+    }
+}
+
+// Check if resources array is empty
+fn is_empty_resources(resources: [Ast::K8sResource]) -> Bool {
+    len(resources) == 0
+}
+
+/// Extract all Kubernetes resources from YAML
+pub fn extract_k8s_resources(yaml: &str) -> [Ast::K8sResource] {
+    match parse_yaml(yaml) {
+        Ast::ParseResult::Success(doc) => doc.resources,
+        Ast::ParseResult::Error(_) => [],
+    }
+}

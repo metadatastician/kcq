@@ -1,266 +1,235 @@
-// Kyaml.Lint.RequiredFields - Lint rule for required K8s fields
+// SPDX-License-Identifier: MPL-2.0
+// Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 //
-// Checks that all required fields for a Kubernetes resource are present.
+// Required Fields Lint Rule
+// Checks that Kubernetes resources have required fields
 
 module Kyaml.Lint.RequiredFields
 
 import Kyaml.Ast
 
-// ============================================================================
-// Required Fields Definition
-// ============================================================================
-
-/**
- * Defines required fields for different K8s resource kinds.
- * Each kind has a set of fields that must be present.
- */
-type RequiredFields = Map<string, list<string>>
-
-/**
- * Get required fields for a specific kind.
- */
-getRequiredFields :: string -> list<string>
-getRequiredFields kind = 
-  match requiredFieldsMap.lookup kind with
-    | Some fields -> fields
-    | None -> defaultRequiredFields
-
-where
-  // Map of kind -> required field paths (JSON path format)
-  requiredFieldsMap :: Map<string, list<string>>
-  requiredFieldsMap = emptyMap
-    .insert "Deployment" [
-      "apiVersion",
-      "kind",
-      "metadata",
-      "metadata.name",
-      "spec",
-      "spec.selector",
-      "spec.template",
-      "spec.template.metadata",
-      "spec.template.spec"
-    ]
-    .insert "StatefulSet" [
-      "apiVersion",
-      "kind",
-      "metadata",
-      "metadata.name",
-      "spec",
-      "spec.selector",
-      "spec.template",
-      "spec.template.metadata",
-      "spec.template.spec",
-      "spec.serviceName"
-    ]
-    .insert "DaemonSet" [
-      "apiVersion",
-      "kind",
-      "metadata",
-      "metadata.name",
-      "spec",
-      "spec.selector",
-      "spec.template",
-      "spec.template.metadata",
-      "spec.template.spec"
-    ]
-    .insert "Service" [
-      "apiVersion",
-      "kind",
-      "metadata",
-      "metadata.name",
-      "spec"
-    ]
-    .insert "ConfigMap" [
-      "apiVersion",
-      "kind",
-      "metadata",
-      "metadata.name"
-    ]
-    .insert "Secret" [
-      "apiVersion",
-      "kind",
-      "metadata",
-      "metadata.name"
-    ]
-    .insert "Namespace" [
-      "apiVersion",
-      "kind",
-      "metadata",
-      "metadata.name"
-    ]
-    .insert "Ingress" [
-      "apiVersion",
-      "kind",
-      "metadata",
-      "metadata.name",
-      "spec"
-    ]
-    .insert "PersistentVolume" [
-      "apiVersion",
-      "kind",
-      "metadata",
-      "metadata.name",
-      "spec"
-    ]
-    .insert "PersistentVolumeClaim" [
-      "apiVersion",
-      "kind",
-      "metadata",
-      "metadata.name",
-      "spec"
-    ]
-    .insert "Job" [
-      "apiVersion",
-      "kind",
-      "metadata",
-      "metadata.name",
-      "spec",
-      "spec.template",
-      "spec.template.spec"
-    ]
-    .insert "CronJob" [
-      "apiVersion",
-      "kind",
-      "metadata",
-      "metadata.name",
-      "spec",
-      "spec.schedule",
-      "spec.jobTemplate"
-    ]
-
-  defaultRequiredFields = [
-    "apiVersion",
-    "kind",
-    "metadata",
-    "metadata.name"
-  ]
-
-// ============================================================================
-// Lint Rule Implementation
-// ============================================================================
-
-/**
- * Represents a lint issue found in a KYAML document.
- */
-type LintIssue = {
-  ruleId: string,
-  severity: Severity,
-  message: string,
-  path: list<string>,
-  location: Option<SourceLocation>
+// Lint rule for required fields
+pub fn lint_required_fields(doc: &Ast::AstDocument) -> [Ast::LintIssue] {
+    let mut issues = [];
+    
+    // Check each resource for required fields
+    for resource in doc.resources {
+        let resource_issues = check_resource_required_fields(resource);
+        issues = issues ++ resource_issues;
+    }
+    
+    // Also check the root document if it's a K8s resource
+    if is_k8s_resource(&doc.root) {
+        let root_issues = check_mapping_required_fields(&doc.root);
+        issues = issues ++ root_issues;
+    }
+    
+    issues
 }
 
-/**
- * Severity levels for lint issues.
- */
-type Severity
-  = Error
-  | Warning
-  | Info
+// Check if a YAML value is a Kubernetes resource
+fn is_k8s_resource(value: &Ast::YamlValue) -> Bool {
+    match value {
+        Ast::YamlValue::Mapping(map) => {
+            map.contains("apiVersion") && map.contains("kind")
+        },
+        _ => false,
+    }
+}
 
-/**
- * The lint rule function type.
- */
-type LintRule = KYamlDoc -> list<LintIssue>
+// Check a resource for required fields
+fn check_resource_required_fields(resource: Ast::K8sResource) -> [Ast::LintIssue] {
+    match resource {
+        Ast::K8sResource::Pod(map) => check_pod_required_fields(&map),
+        Ast::K8sResource::Deployment(map) => check_deployment_required_fields(&map),
+        Ast::K8sResource::Service(map) => check_service_required_fields(&map),
+        Ast::K8sResource::ConfigMap(map) => check_configmap_required_fields(&map),
+        Ast::K8sResource::Secret(map) => check_secret_required_fields(&map),
+        Ast::K8sResource::Generic(map) => check_mapping_required_fields(&Ast::YamlValue::Mapping(map)),
+    }
+}
 
-/**
- * Check for missing required fields in a KYAML document.
- */
-checkRequiredFields :: LintRule
-checkRequiredFields doc = 
-  case doc of
-    KResource resource ->
-      let kind = resource.kind
-      let required = getRequiredFields kind
-      let missing = filter (\field -> not (hasField resource field)) required
-      map (\field -> {
-        ruleId: "required-fields",
-        severity: Error,
-        message: "Missing required field: " ++ field,
-        path: [field],
-        location: None
-      }) missing
-    KGeneric _ ->
-      []  // Generic YAML doesn't have required fields
+// Check Pod required fields
+fn check_pod_required_fields(map: &{}String -> Ast::YamlValue) -> [Ast::LintIssue] {
+    let mut issues = [];
+    
+    // Pod must have metadata
+    if !map.contains("metadata") {
+        issues = issues ++ [{
+            rule: "required-field",
+            message: "Pod is missing required 'metadata' field",
+            severity: Ast::LintSeverity::Error,
+            location: { line: None, column: None, path: Some("metadata") },
+        }];
+    }
+    
+    // Pod must have spec
+    if !map.contains("spec") {
+        issues = issues ++ [{
+            rule: "required-field",
+            message: "Pod is missing required 'spec' field",
+            severity: Ast::LintSeverity::Error,
+            location: { line: None, column: None, path: Some("spec") },
+        }];
+    }
+    
+    issues
+}
 
-where
-  /**
-   * Check if a resource has a specific field (using JSON path notation).
-   */
-  hasField :: Resource -> string -> bool
-  hasField resource path = 
-    let parts = splitPath path
-    hasFieldAtParts resource parts
-  
-  splitPath path = split path "."
-  
-  hasFieldAtParts resource parts = 
-    let rec loop obj remaining = 
-      case remaining of
-        [] -> true
-        (part :: rest) ->
-          case obj of
-            | None -> false
-            | Some (NScalar _) -> false  // Can't go deeper into scalar
-            | Some (NSequence _) -> false  // Path doesn't work on arrays without index
-            | Some (NMapping m) ->
-                loop (m.lookup part) rest
-            | Some (NAnchor (_, node)) -> loop (Some node) rest
-            | Some (NAlias _) -> false  // Simplified
-            | Some (NTag (_, node)) -> loop (Some node) rest
-    in
-      loop (Some (resourceToNode resource)) parts
-  
-  resourceToNode resource = NMapping (emptyMap
-    .insert "apiVersion" (NScalar (SString resource.apiVersion))
-    .insert "kind" (NScalar (SString resource.kind))
-    .insert "metadata" (metadataToNode resource.metadata)
-    .insert "spec" resource.spec
-    .insertIfSome "status" resource.status
-  )
-  
-  metadataToNode metadata = NMapping (emptyMap
-    .insert "name" (NScalar (SString metadata.name))
-    .insertIfSome "namespace" (metadata.namespace |> map (\ns -> NScalar (SString ns)))
-    .insert "labels" (mapToNode metadata.labels)
-    .insert "annotations" (mapToNode metadata.annotations)
-    .insertIfSome "uid" (metadata.uid |> map (\uid -> NScalar (SString uid)))
-    .insertIfSome "resourceVersion" (metadata.resourceVersion |> map (\rv -> NScalar (SString rv)))
-    .insertIfSome "creationTimestamp" (metadata.creationTimestamp |> map (\ts -> NScalar (SString ts)))
-    .insertIfSome "generation" (metadata.generation |> map (\gen -> NScalar (SInt gen)))
-  )
-  
-  mapToNode m = NMapping (foldl (\acc, k, v -> acc.insert k (NScalar (SString v))) emptyMap m)
-  
-  insertIfSome m key optVal = 
-    case optVal of
-      Some val -> m.insert key val
-      None -> m
+// Check Deployment required fields
+fn check_deployment_required_fields(map: &{}String -> Ast::YamlValue) -> [Ast::LintIssue] {
+    let mut issues = [];
+    
+    // Deployment must have metadata
+    if !map.contains("metadata") {
+        issues = issues ++ [{
+            rule: "required-field",
+            message: "Deployment is missing required 'metadata' field",
+            severity: Ast::LintSeverity::Error,
+            location: { line: None, column: None, path: Some("metadata") },
+        }];
+    }
+    
+    // Deployment must have spec
+    if !map.contains("spec") {
+        issues = issues ++ [{
+            rule: "required-field",
+            message: "Deployment is missing required 'spec' field",
+            severity: Ast::LintSeverity::Error,
+            location: { line: None, column: None, path: Some("spec") },
+        }];
+    }
+    
+    // Check spec fields
+    if let Some(Ast::YamlValue::Mapping(spec)) = map.get("spec") {
+        // Deployment spec must have selector
+        if !spec.contains("selector") {
+            issues = issues ++ [{
+                rule: "required-field",
+                message: "Deployment spec is missing required 'selector' field",
+                severity: Ast::LintSeverity::Error,
+                location: { line: None, column: None, path: Some("spec.selector") },
+            }];
+        }
+        
+        // Deployment spec must have template
+        if !spec.contains("template") {
+            issues = issues ++ [{
+                rule: "required-field",
+                message: "Deployment spec is missing required 'template' field",
+                severity: Ast::LintSeverity::Error,
+                location: { line: None, column: None, path: Some("spec.template") },
+            }];
+        }
+    }
+    
+    issues
+}
 
-// ============================================================================
-// Rule Registration
-// ============================================================================
+// Check Service required fields
+fn check_service_required_fields(map: &{}String -> Ast::YamlValue) -> [Ast::LintIssue] {
+    let mut issues = [];
+    
+    if !map.contains("metadata") {
+        issues = issues ++ [{
+            rule: "required-field",
+            message: "Service is missing required 'metadata' field",
+            severity: Ast::LintSeverity::Error,
+            location: { line: None, column: None, path: Some("metadata") },
+        }];
+    }
+    
+    if !map.contains("spec") {
+        issues = issues ++ [{
+            rule: "required-field",
+            message: "Service is missing required 'spec' field",
+            severity: Ast::LintSeverity::Error,
+            location: { line: None, column: None, path: Some("spec") },
+        }];
+    }
+    
+    if let Some(Ast::YamlValue::Mapping(spec)) = map.get("spec") {
+        if !spec.contains("ports") {
+            issues = issues ++ [{
+                rule: "required-field",
+                message: "Service spec is missing required 'ports' field",
+                severity: Ast::LintSeverity::Error,
+                location: { line: None, column: None, path: Some("spec.ports") },
+            }];
+        }
+    }
+    
+    issues
+}
 
-/**
- * Get the rule ID for this linter.
- */
-ruleId :: string
-ruleId = "required-fields"
+// Check ConfigMap required fields
+fn check_configmap_required_fields(map: &{}String -> Ast::YamlValue) -> [Ast::LintIssue] {
+    let mut issues = [];
+    
+    if !map.contains("metadata") {
+        issues = issues ++ [{
+            rule: "required-field",
+            message: "ConfigMap is missing required 'metadata' field",
+            severity: Ast::LintSeverity::Error,
+            location: { line: None, column: None, path: Some("metadata") },
+        }];
+    }
+    
+    issues
+}
 
-/**
- * Get the rule description.
- */
-description :: string
-description = "Checks that all required Kubernetes fields are present."
+// Check Secret required fields
+fn check_secret_required_fields(map: &{}String -> Ast::Value) -> [Ast::LintIssue] {
+    let mut issues = [];
+    
+    if !map.contains("metadata") {
+        issues = issues ++ [{
+            rule: "required-field",
+            message: "Secret is missing required 'metadata' field",
+            severity: Ast::LintSeverity::Error,
+            location: { line: None, column: None, path: Some("metadata") },
+        }];
+    }
+    
+    issues
+}
 
-/**
- * Get the default severity.
- */
-defaultSeverity :: Severity
-defaultSeverity = Error
-
-/**
- * The rule itself.
- */
-rule :: LintRule
-rule = checkRequiredFields
+// Check a generic mapping for common required fields
+fn check_mapping_required_fields(value: &Ast::YamlValue) -> [Ast::LintIssue] {
+    let mut issues = [];
+    
+    match value {
+        Ast::YamlValue::Mapping(map) => {
+            // Check for apiVersion and kind
+            if !map.contains("apiVersion") {
+                issues = issues ++ [{
+                    rule: "required-field",
+                    message: "Kubernetes resource is missing required 'apiVersion' field",
+                    severity: Ast::LintSeverity::Error,
+                    location: { line: None, column: None, path: Some("apiVersion") },
+                }];
+            }
+            
+            if !map.contains("kind") {
+                issues = issues ++ [{
+                    rule: "required-field",
+                    message: "Kubernetes resource is missing required 'kind' field",
+                    severity: Ast::LintSeverity::Error,
+                    location: { line: None, column: None, path: Some("kind") },
+                }];
+            }
+            
+            if !map.contains("metadata") {
+                issues = issues ++ [{
+                    rule: "required-field",
+                    message: "Kubernetes resource is missing required 'metadata' field",
+                    severity: Ast::LintSeverity::Error,
+                    location: { line: None, column: None, path: Some("metadata") },
+                }];
+            }
+        },
+        _ => [],
+    }
+    
+    issues
+}

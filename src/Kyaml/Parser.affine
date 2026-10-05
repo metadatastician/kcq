@@ -1,477 +1,385 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
-
-// Kyaml.Parser - Parser for Kubernetes YAML
 //
-// This module parses tokens into a KYAML AST.
-// It handles the YAML structure and builds Kubernetes-specific types.
+// KYAML Parser
+// Parses tokens into an AST representation
 
 module Kyaml.Parser
 
 import Kyaml.Ast
 import Kyaml.Lexer
 
-// ============================================================================
-// Parser Types
-// ============================================================================
-
-/**
- * Represents a parse error with context.
- */
-type ParseError = {
-  message: string,
-  location: SourceLocation,
-  expected: list<string>,
-  found: Option<Token>
+// Parser state
+pub type Parser = {
+    lexer: Lexer,
+    tokens: [PositionedToken],
+    position: Int,
+    current_token: Option<PositionedToken>,
 }
 
-/**
- * Represents the parser state.
- */
-type ParserState = {
-  tokens: list<Token>,
-  position: int,
-  currentIndent: int,
-  indentStack: list<int>
+// Create a new parser
+pub fn new(input: String) -> Parser {
+    let mut lexer = Lexer::new(input);
+    let tokens = Lexer::tokenize(&mut lexer);
+    
+    {
+        lexer: lexer,
+        tokens: tokens,
+        position: 0,
+        current_token: if len(tokens) > 0 { Some(tokens[0]) } else { None },
+    }
 }
 
-// ============================================================================
-// Initial State
-// ============================================================================
-
-/**
- * Create initial parser state from tokens.
- */
-initParserState :: list<Token> -> ParserState
-initParserState tokens = {
-  tokens: tokens,
-  position: 0,
-  currentIndent: 0,
-  indentStack: [0]
+// Advance to next token
+fn advance(parser: &mut Parser) {
+    parser.position = parser.position + 1;
+    if parser.position < len(parser.tokens) {
+        parser.current_token = Some(parser.tokens[parser.position]);
+    } else {
+        parser.current_token = None;
+    }
 }
 
-// ============================================================================
-// Token Access
-// ============================================================================
-
-/**
- * Get the current token.
- */
-currentToken :: ParserState -> Option<Token>
-currentToken state = 
-  if state.position < length state.tokens then
-    Some state.tokens[state.position]
-  else
-    None
-
-/**
- * Get the next token and advance.
- */
-nextToken :: ParserState -> Option<(Token, ParserState)>
-nextToken state = 
-  if state.position >= length state.tokens then
-    None
-  else
-    let token = state.tokens[state.position]
-    let newState = { state | position: state.position + 1 }
-    Some (token, newState)
-
-/**
- * Peek at the current token.
- */
-peekToken :: ParserState -> Option<Token>
-peekToken state = currentToken state
-
-/**
- * Peek at the next token.
- */
-peekNextToken :: ParserState -> Option<Token>
-peekNextToken state = 
-  if state.position + 1 < length state.tokens then
-    Some state.tokens[state.position + 1]
-  else
-    None
-
-/**
- * Check if current token is of a specific type.
- */
-isToken :: ParserState -> (Token -> bool) -> bool
-isToken state pred = 
-  match peekToken state with
-  | Some token -> pred token
-  | None -> false
-
-// ============================================================================
-// Error Handling
-// ============================================================================
-
-/**
- * Create a parse error.
- */
-mkParseError :: string -> SourceLocation -> list<string> -> Option<Token> -> ParseError
-mkParseError message location expected found = {
-  message: message,
-  location: location,
-  expected: expected,
-  found: found
+// Get current token
+fn current_token(parser: &Parser) -> Option<PositionedToken> {
+    parser.current_token
 }
 
-/**
- * Expect a token of a specific type.
- */
-expectToken :: ParserState -> (Token -> bool) -> string -> list<string> -> Result<Token, ParseError>
-expectToken state pred errorMsg expected = 
-  match nextToken state with
-  | Some (token, newState) ->
-      if pred token then
-        Ok token
-      else
-        Err (mkParseError errorMsg (getTokenLocation token) expected (Some token))
-  | None ->
-      let loc = if state.position < length state.tokens then
-          getTokenLocation state.tokens[state.position]
-        else
-          {file: None, line: 0, column: 0, offset: 0}
-      Err (mkParseError (errorMsg ++ " (unexpected end of input)") loc expected None)
+// Check if current token is a specific type
+fn is_token(parser: &Parser, token: Token) -> Bool {
+    match current_token(parser) {
+        Some(tok) => tok.token == token,
+        None => false,
+    }
+}
 
-where getTokenLocation token = 
-  case token of
-    TKey (_, loc) -> loc
-    TColon loc -> loc
-    TDash loc -> loc
-    TScalar (_, loc) -> loc
-    TBlockStart loc -> loc
-    TBlockEnd loc -> loc
-    TNewline loc -> loc
-    TIndicators loc -> loc
-    TComment (_, loc) -> loc
-    TAnchor (_, loc) -> loc
-    TAlias (_, loc) -> loc
-    TTag (_, loc) -> loc
-    TEOF loc -> loc
+// Expect a specific token type
+fn expect(parser: &mut Parser, expected: Token) -> Result<PositionedToken, ParseError> {
+    match current_token(parser) {
+        Some(tok) => {
+            if tok.token == expected {
+                let result = tok;
+                advance(parser);
+                Ok(result)
+            } else {
+                Err({
+                    message: "Expected " ++ token_to_string(expected) ++ " but found " ++ token_to_string(tok.token),
+                    line: tok.position.line,
+                    column: tok.position.column,
+                    context: None,
+                })
+            }
+        },
+        None => Err({
+            message: "Unexpected end of tokens, expected " ++ token_to_string(expected),
+            line: None,
+            column: None,
+            context: None,
+        }),
+    }
+}
 
-// ============================================================================
-// Node Parsing
-// ============================================================================
+// Parse YAML string and return AST document
+pub fn parse_yaml(input: &str) -> Ast::ParseResult {
+    let mut parser = new(input);
+    parse_document(&mut parser)
+}
 
-/**
- * Parse a node from the token stream.
- * Handles scalars, sequences, and mappings.
- */
-parseNode :: ParserState -> Result<(Node, ParserState), ParseError>
-parseNode state = 
-  // Try scalar first
-  let scalarResult = parseScalar state
-  case scalarResult of
-    Ok (node, newState) -> Ok (node, newState)
-    Err _ ->
-      // Try sequence
-      let seqResult = parseSequence state
-      case seqResult of
-        Ok (node, newState) -> Ok (node, newState)
-        Err _ ->
-          // Try mapping
-          let mapResult = parseMapping state
-          case mapResult of
-            Ok (node, newState) -> Ok (node, newState)
-            Err e -> Err e
+// Parse a complete document
+fn parse_document(parser: &mut Parser) -> Ast::ParseResult {
+    match current_token(parser) {
+        Some(tok) => {
+            match tok.token {
+                Token::StreamStart => {
+                    advance(parser);
+                    let result = parse_node(parser);
+                    match result {
+                        Ok(root) => {
+                            // Skip to stream end
+                            while parser.position < len(parser.tokens) - 1 {
+                                advance(parser);
+                            }
+                            Ast::ParseResult::Success({
+                                version: None,
+                                tags: None,
+                                root: root,
+                                resources: [],
+                            })
+                        },
+                        Err(err) => Ast::ParseResult::Error(err),
+                    }
+                },
+                _ => Ast::ParseResult::Error({
+                    message: "Expected StreamStart token",
+                    line: tok.position.line,
+                    column: tok.position.column,
+                    context: None,
+                }),
+            }
+        },
+        None => Ast::ParseResult::Error({
+            message: "Empty token stream",
+            line: None,
+            column: None,
+            context: None,
+        }),
+    }
+}
 
-/**
- * Parse a scalar value.
- */
-parseScalar :: ParserState -> Result<(Node, ParserState), ParseError>
-parseScalar state = 
-  match peekToken state with
-  | Some (TScalar (value, loc)) ->
-      let node = parseScalarValue value loc
-      let newState = advance state
-      Ok (node, newState)
-  | Some (TKey (value, loc)) ->
-      // Keys can also be scalars in some contexts
-      let node = NScalar (SString value)
-      let newState = advance state
-      Ok (node, newState)
-  | Some token ->
-      Err (mkParseError "Expected scalar" (getTokenLocation token) ["scalar"] (Some token))
-  | None ->
-      Err (mkParseError "Expected scalar" {file: None, line: 0, column: 0, offset: 0} ["scalar"] None)
+// Parse a YAML node (value)
+fn parse_node(parser: &mut Parser) -> Result<Ast::YamlValue, Ast::ParseError> {
+    match current_token(parser) {
+        Some(tok) => {
+            match tok.token {
+                Token::Scalar(s) => {
+                    advance(parser);
+                    Ok(Ast::YamlValue::String(s))
+                },
+                Token::Integer(i) => {
+                    advance(parser);
+                    Ok(Ast::YamlValue::Int(i))
+                },
+                Token::Float(f) => {
+                    advance(parser);
+                    Ok(Ast::YamlValue::Float(f))
+                },
+                Token::Bool(b) => {
+                    advance(parser);
+                    Ok(Ast::YamlValue::Bool(b))
+                },
+                Token::Null => {
+                    advance(parser);
+                    Ok(Ast::YamlValue::Null)
+                },
+                Token::FlowSequenceStart => parse_flow_sequence(parser),
+                Token::FlowMappingStart => parse_flow_mapping(parser),
+                Token::BlockSequenceStart => parse_block_sequence(parser),
+                Token::BlockMappingStart => parse_block_mapping(parser),
+                _ => Err({
+                    message: "Unexpected token: " ++ token_to_string(tok.token),
+                    line: tok.position.line,
+                    column: tok.position.column,
+                    context: None,
+                }),
+            }
+        },
+        None => Err({
+            message: "Unexpected end of tokens",
+            line: None,
+            column: None,
+            context: None,
+        }),
+    }
+}
 
-where
-  advance state = match nextToken state with | Some (_, s) -> s | None -> state
-  
-  parseScalarValue value loc = 
-    // Try to parse as int
-    if isInteger value then
-      NScalar (SInt (parseInt value))
-    // Try to parse as float
-    else if isFloat value then
-      NScalar (SFloat (parseFloat value))
-    // Check for booleans
-    else if value == "true" then
-      NScalar (SBool true)
-    else if value == "false" then
-      NScalar (SBool false)
-    else if value == "null" || value == "~" then
-      NScalar SNull
-    // Everything else is a string
-    else
-      NScalar (SString value)
-  
-  isInteger s = 
-    if s == "" then false
-    else all isDigit s[0..length(s)-1] || (s[0] == '-' && all isDigit s[1..length(s)-1])
-  
-  parseInt s = 
-    if s == "" then 0
-    else if s[0] == '-' then -parseInt s[1..length(s)-1]
-    else foldl (\(acc, c) -> acc * 10 + (charToDigit c)) 0 s
-  
-  charToDigit c = if c >= '0' && c <= '9' then ord c - ord '0' else 0
-  
-  isFloat s = contains s '.'
-  parseFloat s = 0.0  // Simplified - real implementation would parse properly
-
-/**
- * Parse a sequence (list/array).
- */
-parseSequence :: ParserState -> Result<(Node, ParserState), ParseError>
-parseSequence state = 
-  // Check for sequence indicator
-  match peekToken state with
-  | Some (TDash _) ->
-      let items = []
-      let rec loop s = 
-        // Skip the dash
-        let newState = advance s
-        // Parse the value after dash
-        match parseNode newState with
-        | Ok (node, afterNode) ->
-            let restResult = loop afterNode
-            case restResult of
-              Ok (moreItems, finalState) -> Ok (node :: moreItems, finalState)
-              Err e -> Err e
-        | Err e -> Err e
-      in
-        let result = loop state
-        case result of
-          Ok (items, finalState) -> Ok (NSequence items, finalState)
-          Err e -> Err e
-  | _ ->
-      Err (mkParseError "Expected sequence start (-)" (getLoc state) ["sequence"] None)
-
-where
-  getLoc state = if state.position < length state.tokens then getTokenLocation state.tokens[state.position] else {file: None, line: 0, column: 0, offset: 0}
-
-/**
- * Parse a mapping (object/dictionary).
- */
-parseMapping :: ParserState -> Result<(Node, ParserState), ParseError>
-parseMapping state = 
-  let entries = []
-  let rec loop s = 
-    // Check if we're done (newline, end of block, etc.)
-    match peekToken s with
-    | Some (TNewline _) ->
-        let newState = advance s
-        // Check indentation - if we're back to a previous level, we're done
-        if isDedent newState then
-          Ok (entries, newState)
-        else
-          loop newState
-    | Some (TBlockEnd _) ->
-        Ok (entries, advance s)
-    | Some (TEOF _) ->
-        Ok (entries, s)
-    | Some token ->
-        // Parse key
-        match parseKey s with
-        | Ok (key, afterKey) ->
-            // Expect colon
-            match expectToken afterKey isColon "Expected : after key" [":"] with
-            | Ok (_, afterColon) ->
-                // Parse value
-                match parseNode (skipWhitespace afterColon) with
-                | Ok (value, afterValue) ->
-                    let entry = (key, value)
-                    loop afterValue |> map ((\entries) -> entry :: entries)
-                | Err e -> Err e
-            | Err e -> Err e
-        | Err e -> Err e
-    | None ->
-        Ok (entries, s)
-  in
-    let result = loop state
-    case result of
-      Ok (entries, finalState) ->
-        // Convert to map
-        let m = foldl (\m, (k, v) -> m.insert k v) emptyMap entries
-        Ok (NMapping m, finalState)
-      Err e -> Err e
-
-where
-  isColon token = case token of | TColon _ -> true | _ -> false
-  skipWhitespace s = 
-    let rec loop t = 
-      match peekToken t with
-      | Some (TNewline _) -> loop (advance t)
-      | Some (TComment _) -> loop (advance t)
-      | Some _ -> t
-      | None -> t
-    in loop s
-
-/**
- * Parse a key (can be a scalar or a more complex key).
- */
-parseKey :: ParserState -> Result<(string, ParserState), ParseError>
-parseKey state = 
-  match peekToken state with
-  | Some (TKey (value, loc)) ->
-      Ok (value, advance state)
-  | Some (TScalar (value, loc)) ->
-      Ok (value, advance state)
-  | Some token ->
-      Err (mkParseError "Expected key" (getTokenLocation token) ["key"] (Some token))
-  | None ->
-      Err (mkParseError "Expected key" {file: None, line: 0, column: 0, offset: 0} ["key"] None)
-
-// ============================================================================
-// Document Parsing
-// ============================================================================
-
-/**
- * Parse a complete KYAML document.
- * A document starts at the beginning or after a --- separator.
- */
-parseDocument :: ParserState -> Result<(KYamlDoc, ParserState), ParseError>
-parseDocument state = 
-  // Skip block start if present
-  let state1 = match peekToken state with
-    | Some (TBlockStart _) -> advance state
-    | _ -> state
-  
-  // Parse the top-level mapping
-  match parseMapping state1 with
-  | Ok (node, afterMapping) ->
-      // Check if this is a K8s resource
-      case tryParseResource node of
-        Some resource ->
-          let doc = KResource resource
-          let state2 = skipToNextDoc afterMapping
-          Ok (doc, state2)
-        None ->
-          let doc = KGeneric node
-          let state2 = skipToNextDoc afterMapping
-          Ok (doc, state2)
-  | Err e -> Err e
-
-where
-  advance state = match nextToken state with | Some (_, s) -> s | None -> state
-  
-  skipToNextDoc state = 
-    let rec loop s = 
-      match peekToken s with
-      | Some (TBlockStart _) -> advance s
-      | Some (TNewline _) -> loop (advance s)
-      | Some _ -> s
-      | None -> s
-    in loop state
-
-/**
- * Try to parse a Node as a Kubernetes Resource.
- */
-tryParseResource :: Node -> Option<Resource>
-tryParseResource node = 
-  case node of
-    NMapping m ->
-      // Check for required fields
-      if m.has "apiVersion" && m.has "kind" && m.has "metadata" then
-        Some {
-          apiVersion: getString m "apiVersion" "",
-          kind: getString m "kind" "",
-          metadata: parseMetadata (m.lookup "metadata"),
-          spec: m.lookupDefault (NScalar SNull) "spec",
-          status: m.lookup "status"
+// Parse flow sequence [a, b, c]
+fn parse_flow_sequence(parser: &mut Parser) -> Result<Ast::YamlValue, Ast::ParseError> {
+    expect(parser, Token::FlowSequenceStart)?;
+    
+    let mut elements = [];
+    
+    while !is_token(parser, Token::FlowSequenceEnd) && !is_token(parser, None) {
+        if is_token(parser, Token::FlowEntry) || is_token(parser, Token::Comma) {
+            advance(parser);
         }
-      else
-        None
-    _ -> None
-
-where
-  getString m key default = 
-    case m.lookup key of
-      Some (NScalar (SString s)) -> s
-      Some _ -> default
-      None -> default
-  
-  parseMetadata node = 
-    case node of
-      NMapping m -> {
-        name: getString m "name" "",
-        namespace: m.lookup "namespace" |> map getStringFromNode,
-        labels: getMap m "labels",
-        annotations: getMap m "annotations",
-        uid: m.lookup "uid" |> map getStringFromNode,
-        resourceVersion: m.lookup "resourceVersion" |> map getStringFromNode,
-        creationTimestamp: m.lookup "creationTimestamp" |> map getStringFromNode,
-        generation: m.lookup "generation" |> map getIntFromNode,
-        managedFields: None  // Simplified for now
-      }
-      _ -> defaultMetadata
+        
+        match parse_node(parser) {
+            Ok(node) => elements = elements ++ [node],
+            Err(err) => return Err(err),
+        }
+    }
     
-  getStringFromNode node = 
-    case node of
-      NScalar (SString s) -> s
-      _ -> ""
-  
-  getIntFromNode node = 
-    case node of
-      NScalar (SInt i) -> i
-      _ -> 0
-  
-  getMap m key = 
-    case m.lookup key of
-      Some (NMapping subM) -> subM.toMap |> mapValues getStringFromNode
-      _ -> emptyMap
+    expect(parser, Token::FlowSequenceEnd)?;
+    Ok(Ast::YamlValue::Sequence(elements))
+}
+
+// Parse flow mapping {a: b, c: d}
+fn parse_flow_mapping(parser: &mut Parser) -> Result<Ast::YamlValue, Ast::ParseError> {
+    expect(parser, Token::FlowMappingStart)?;
     
-  mapValues f m = foldl (\acc, k, v -> acc.insert k (f v)) emptyMap m
-  
-  defaultMetadata = {
-    name: "",
-    namespace: None,
-    labels: emptyMap,
-    annotations: emptyMap,
-    uid: None,
-    resourceVersion: None,
-    creationTimestamp: None,
-    generation: None,
-    managedFields: None
-  }
+    let mut mapping = {};
+    
+    while !is_token(parser, Token::FlowMappingEnd) && !is_token(parser, None) {
+        if is_token(parser, Token::FlowEntry) || is_token(parser, Token::Comma) {
+            advance(parser);
+        }
+        
+        // Parse key
+        let key = match parse_node(parser) {
+            Ok(node) => node,
+            Err(err) => return Err(err),
+        };
+        
+        // Expect colon
+        if !is_token(parser, Token::BlockMappingStart) {
+            return Err({
+                message: "Expected ':' after mapping key",
+                line: current_token(parser).map(|t| t.position.line).unwrap_or(None),
+                column: current_token(parser).map(|t| t.position.column).unwrap_or(None),
+                context: None,
+            });
+        }
+        advance(parser);
+        
+        // Parse value
+        let value = match parse_node(parser) {
+            Ok(node) => node,
+            Err(err) => return Err(err),
+        };
+        
+        // Convert key to string for mapping
+        let key_str = yaml_value_to_string(key);
+        mapping{key_str} = value;
+    }
+    
+    expect(parser, Token::FlowMappingEnd)?;
+    Ok(Ast::YamlValue::Mapping(mapping))
+}
 
-// ============================================================================
-// Main Parser Function
-// ============================================================================
+// Parse block sequence (indented list)
+fn parse_block_sequence(parser: &mut Parser) -> Result<Ast::YamlValue, Ast::ParseError> {
+    expect(parser, Token::BlockSequenceStart)?;
+    
+    let mut elements = [];
+    
+    while !is_token(parser, Token::BlockSequenceEnd) && !is_token(parser, None) {
+        if is_token(parser, Token::BlockEntry) {
+            advance(parser);
+            
+            match parse_node(parser) {
+                Ok(node) => elements = elements ++ [node],
+                Err(err) => return Err(err),
+            }
+        } else if is_token(parser, Token::Dedent) {
+            // End of block sequence
+            advance(parser);
+            break;
+        } else {
+            advance(parser);
+        }
+    }
+    
+    Ok(Ast::YamlValue::Sequence(elements))
+}
 
-/**
- * Parse a complete KYAML file (potentially multi-document).
- */
-parseKyaml :: string -> Result<KYamlFile, ParseError>
-parseKyaml input = 
-  let tokens = lex input
-  let state = initParserState tokens
-  let docs = []
-  let rec loop s = 
-    match peekToken s with
-    | Some (TEOF _) -> Ok (reverse docs, s)
-    | Some (TBlockStart _) ->
-        let result = parseDocument (advance s)
-        case result of
-          Ok (doc, newState) -> loop newState |> map ((\ds) -> doc :: ds)
-          Err e -> Err e
-    | Some _ ->
-        let result = parseDocument s
-        case result of
-          Ok (doc, newState) -> loop newState |> map ((\ds) -> doc :: ds)
-          Err e -> Err e
-    | None -> Ok (reverse docs, s)
-  in
-    loop state
+// Parse block mapping (indented key-value pairs)
+fn parse_block_mapping(parser: &mut Parser) -> Result<Ast::YamlValue, Ast::ParseError> {
+    expect(parser, Token::BlockMappingStart)?;
+    
+    let mut mapping = {};
+    
+    while !is_token(parser, Token::BlockMappingEnd) && !is_token(parser, None) {
+        // Parse key
+        let key = match parse_node(parser) {
+            Ok(node) => node,
+            Err(err) => return Err(err),
+        };
+        
+        // Expect colon
+        if !is_token(parser, Token::BlockMappingStart) {
+            return Err({
+                message: "Expected ':' after mapping key",
+                line: current_token(parser).map(|t| t.position.line).unwrap_or(None),
+                column: current_token(parser).map(|t| t.position.column).unwrap_or(None),
+                context: None,
+            });
+        }
+        advance(parser);
+        
+        // Parse value
+        let value = match parse_node(parser) {
+            Ok(node) => node,
+            Err(err) => return Err(err),
+        };
+        
+        // Convert key to string for mapping
+        let key_str = yaml_value_to_string(key);
+        mapping{key_str} = value;
+        
+        // Check for next key or end
+        if is_token(parser, Token::Dedent) || is_token(parser, Token::BlockMappingEnd) {
+            break;
+        }
+    }
+    
+    Ok(Ast::YamlValue::Mapping(mapping))
+}
+
+// Parse Kubernetes resources from YAML
+pub fn parse_k8s_resources(input: &str) -> [Ast::K8sResource] {
+    match parse_yaml(input) {
+        Ast::ParseResult::Success(doc) => {
+            // Simple implementation: check if root is a mapping with apiVersion and kind
+            match doc.root {
+                Ast::YamlValue::Mapping(map) => {
+                    if map.contains("apiVersion") && map.contains("kind") {
+                        // This is a K8s resource
+                        let kind = map.get("kind");
+                        match kind {
+                            Some(Ast::YamlValue::String(s)) => {
+                                // For now, just wrap in Generic
+                                [Ast::K8sResource::Generic(map)]
+                            },
+                            _ => [],
+                        }
+                    } else {
+                        []
+                    }
+                },
+                _ => [],
+            }
+        },
+        Ast::ParseResult::Error(_) => [],
+    }
+}
+
+// Helper: convert token to string for error messages
+fn token_to_string(token: Token) -> String {
+    match token {
+        Token::StreamStart => "StreamStart",
+        Token::StreamEnd => "StreamEnd",
+        Token::DocumentStart => "DocumentStart",
+        Token::DocumentEnd => "DocumentEnd",
+        Token::BlockMappingStart => "BlockMappingStart",
+        Token::BlockSequenceStart => "BlockSequenceStart",
+        Token::BlockEntry => "BlockEntry",
+        Token::BlockScalar => "BlockScalar",
+        Token::FlowMappingStart => "FlowMappingStart",
+        Token::FlowMappingEnd => "FlowMappingEnd",
+        Token::FlowSequenceStart => "FlowSequenceStart",
+        Token::FlowSequenceEnd => "FlowSequenceEnd",
+        Token::FlowEntry => "FlowEntry",
+        Token::Scalar(s) => "Scalar(\"" ++ s ++ "\")",
+        Token::Integer(i) => "Integer(" ++ int_to_string(i) ++ ")",
+        Token::Float(f) => "Float(" ++ float_to_string(f) ++ ")",
+        Token::Bool(b) => "Bool(" ++ if b { "true" } else { "false" } ++ ")",
+        Token::Null => "Null",
+        Token::Anchor(s) => "Anchor(\"" ++ s ++ "\")",
+        Token::Alias(s) => "Alias(\"" ++ s ++ "\")",
+        Token::Tag(s, _) => "Tag(\"" ++ s ++ "\")",
+        Token::YamlDirective(s) => "YamlDirective(\"" ++ s ++ "\")",
+        Token::TagDirective(s, t) => "TagDirective(\"" ++ s ++ "\", \"" ++ t ++ "\")",
+        Token::Comment(s) => "Comment(\"" ++ s ++ "\")",
+        Token::Newline => "Newline",
+        Token::Whitespace => "Whitespace",
+        Token::Indent => "Indent",
+        Token::Dedent => "Dedent",
+        Token::Error(s) => "Error(\"" ++ s ++ "\")",
+    }
+}
+
+// Helper: convert YAML value to string for use as mapping key
+fn yaml_value_to_string(value: Ast::YamlValue) -> String {
+    match value {
+        Ast::YamlValue::String(s) => s,
+        Ast::YamlValue::Int(i) => int_to_string(i),
+        Ast::YamlValue::Float(f) => float_to_string(f),
+        Ast::YamlValue::Bool(b) => if b { "true" } else { "false" },
+        Ast::YamlValue::Null => "null",
+        Ast::YamlValue::Sequence(_) => "[...]",
+        Ast::YamlValue::Mapping(_) => "{...}",
+        Ast::YamlValue::Anchor(s) => "&" ++ s,
+        Ast::YamlValue::Alias(s) => "*" ++ s,
+        Ast::YamlValue::Tag(h, s) => "!<" ++ h ++ ">" ++ s,
+    }
+}
