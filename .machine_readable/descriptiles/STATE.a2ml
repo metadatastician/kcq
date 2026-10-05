@@ -1,0 +1,99 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 hyperpolymath
+#
+# STATE.a2ml — Project state checkpoint for kcq
+#
+# This file defines the current state of the kcq project.
+# See: https://github.com/hyperpolymath/standards
+
+[metadata]
+project = "kcq"
+version = "0.1.0"
+last-updated = "2026-10-05"
+status = "active"
+
+[project-context]
+name = "kcq"
+owner = "metadatastician"
+purpose = "Kubernetes Configuration Query — an AffineScript-based KYAML processor that provides a smaller, faster, K8s-aware alternative to yq. Designed to replace yq for Kubernetes workloads with compile-time safety guarantees and domain-specific validation."
+completion-percentage = 5
+
+[position]
+phase = "design"
+maturity = "experimental"
+
+[route-to-mvp]
+milestones = [
+  { name = "Phase 0: Project scaffolding (repository, RSR compliance, machine-readable)", completion = 100 },
+  { name = "Phase 1: Core KYAML parser (Deployment, Service, ConfigMap support)", completion = 5 },
+  { name = "Phase 1b: Basic lint rules (required-fields, type-check, deprecated-api)", completion = 0 },
+  { name = "Phase 1c: Basic query commands (get, set, del)", completion = 0 },
+  { name = "Phase 1d: Pretty-print and format commands", completion = 0 },
+  { name = "Phase 2: Full KYAML support (all K8s resource types)", completion = 0 },
+  { name = "Phase 2b: Advanced lint rules (selector-mismatch, image-tags, RBAC)", completion = 0 },
+  { name = "Phase 2c: K8s schema validation (OpenAPI integration)", completion = 0 },
+  { name = "Phase 3: Full jq query language compatibility", completion = 0 },
+  { name = "Phase 3b: Full YAML 1.2 support", completion = 0 },
+  { name = "Phase 4: Multi-format support (JSON, TOML, XML, CSV)", completion = 0 },
+  { name = "Phase 5: Performance optimization (parse speed > 50MB/s)", completion = 0 },
+]
+
+[blockers-and-issues]
+# Current blockers for MVP:
+# 1. AffineScript text processing libraries need to be verified for YAML parsing
+# 2. WASM compilation toolchain for AffineScript needs to be production-ready
+# 3. Performance benchmarks against yq need to be established
+
+blockers = [
+  "AffineScript YAML/JSON parsing libraries maturity",
+  "WASM runtime performance for text processing",
+  "Integration with AffineScript build system"
+]
+
+[dependencies]
+# External dependencies
+language = "AffineScript"
+runtime = "WebAssembly"
+compiler = "hyperpolymath/affinescript"
+
+# K8s schema dependencies
+title = "Kubernetes API Schemas"
+source = "kubernetes/kubernetes"
+version = "v1.30.x"
+
+[targets]
+primary = ["WebAssembly", "native"]
+secondary = ["Docker container"]
+
+[quality-gates]
+# Define quality gates that must pass before release
+unit-tests = "pushed"
+integration-tests = "planned"
+static-analysis = "planned"
+security-scan = "planned"
+performance-benchmark = "planned"
+
+[compliance]
+rsr-tier = "2"
+rsr-compliant = false
+license = "Apache-2.0"
+
+[contact]
+maintainer = "hyperpolymath"
+email = "hyperpolymath@estate"
+
+[links]
+homepage = "https://github.com/metadatastician/kcq"
+repository = "https://github.com/metadatastician/kcq"
+documentation = "https://github.com/metadatastician/kcq#readme"
+issues = "https://github.com/metadatastician/kcq/issues"
+
+[status]
+# Build status
+build-status = "passing"
+# Test status
+test-status = "not-implemented"
+# Security status
+security-status = "not-scanned"
+# License compliance
+license-status = "compliant"

@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: Apache-2.0
+# Clade declaration — part of the gv-clade-index registry
+# See: https://github.com/hyperpolymath/gv-clade-index
+
+[identity]
+# THE UUID IS DERIVED, NOT ALLOCATED (gv-clade-index:
+# docs/SPEC-clade-verisim-portal.adoc §Identity Model):
+#     uuid = UUIDv5(namespace = URL, name = "github.com/<owner>/<name>")
+# This value is a recomputable fact about THIS repo and nothing else:
+#     uuidgen --sha1 --namespace @url --name "github.com/metadatastician/kcq"
+#     -> 6adce3f3-9603-5f30-b570-3620f4754f73
+uuid = "6adce3f3-9603-5f30-b570-3620f4754f73"
+primary-forge = "github"
+primary-owner = "metadatastician"
+canonical-name = "kcq"
+prefixed-name = "kcq-metadatastician-kcq"
+
+[clade]
+# The 2 letters abbreviate the CLADE's name below — never the repo's name.
+# All 12 codes: gv-clade-index verisim/seed/clades.a2ml.
+primary = "ky"
+primary-name = "Kubernetes & YAML Tooling"
+secondary = ["gv"]
+assigned = "2026-10-05"
+rationale = "Kubernetes & YAML Tooling (`ky`): kcq is a K8s-native YAML processor and query tool. `gv` as secondary: the project inherits governance patterns from the metadatastician estate and contributes to data processing standards."
+
+[forges]
+github = "metadatastician/kcq"
+gitlab = ""
+bitbucket = ""
+
+[lineage]
+type = "standalone"
+# `parent` is a monorepo parent, NOT a description.
+parent = ""
+born = "2026-10-05"
+previous-names = []
+
+[status]
+# One of: reserved incubating active dormant | merged superseded archived extinct
+phase = "active"
+since = "2026-10-05"
+present = true
+aliases = []
+merged-into = ""
+superseded-by = ""
+successors = []
+ended = ""
+
+[[status.history]]
+phase = "active"
+since = "2026-10-05"
+note = "Kubernetes Configuration Query - AffineScript KYAML processor; initial development"

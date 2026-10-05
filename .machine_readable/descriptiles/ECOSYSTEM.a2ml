@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: Apache-2.0
+# ECOSYSTEM.a2ml — Ecosystem position for kcq
+#
+# Kubernetes Configuration Query - AffineScript KYAML processor
+
+[metadata]
+project = "kcq"
+ecosystem = "metadatastician"
+
+[position]
+type = "yaml-processor"
+purpose = "K8s-native YAML processor and query tool providing a smaller, faster, K8s-aware alternative to yq. Built with AffineScript for compile-time safety and domain-specific validation of Kubernetes manifests."
+# IS-NOT — anti-identity (the boundary-erosion guard)
+what-this-is-not = [
+  "a general-purpose YAML tool",
+  "a full Kubernetes API client",
+  "a configuration management system",
+  "a replacement for kubectl",
+]
+
+[pipeline]
+position = "utility"
+chain = "Kubernetes manifests → kcq (parse/validate/query) → optimized output"
+notes = "kcq processes Kubernetes YAML with domain-specific awareness, enabling safer, faster operations than generic YAML tools."
+coordination = "metadatastician"
+
+[related-projects]
+projects = [
+  { name = "kyaml", relationship = "foundation", notes = "Go-based KYAML library that kcq aims to complement with AffineScript implementation." },
+  { name = "yq", relationship = "competitor", notes = "Popular YAML processor that kcq aims to replace for K8s use cases with better performance and K8s-specific features." },
+  { name = "affinescript", relationship = "language-platform", notes = "Language runtime that powers kcq's compile-time safety guarantees." },
+  { name = "kubernetes", relationship = "target-ecosystem", notes = "Primary target ecosystem for kcq - Kubernetes manifest processing and validation." },
+  { name = "kcl-lang/kcl", relationship = "inspiration", notes = "Configuration language that inspired exploration of domain-specific YAML processing." },
+]
+
+[competitive-advantages]
+advantages = [
+  { advantage = "K8s-aware parsing", notes = "Understands Kubernetes-specific YAML structures and schema" },
+  { advantage = "Compile-time safety", notes = "AffineScript provides stronger type guarantees than interpreted tools" },
+  { advantage = "Smaller footprint", notes = "Target: significantly smaller memory usage than yq" },
+  { advantage = "Faster execution", notes = "Target: parse speed > 50MB/s for typical K8s manifests" },
+  { advantage = "Domain-specific linting", notes = "K8s-specific validation rules beyond generic YAML validation" },
+]
