@@ -1,0 +1,46 @@
+;; SPDX-License-Identifier: CC-BY-SA-4.0
+;; SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+;;
+;; CLADE Descriptile Deed for kcq
+;; Clade declaration - part of the gv-clade-index registry
+(repo-deed
+  :schema-version "1.0.0"
+  :canonical-name "kcq-CLADE"
+  (identity
+    :uuid #u7"01a10b22-1c7e-7a17-8927-d11ba663c212"
+    :primary-forge "github"
+    :primary-owner "metadatastician"
+    :canonical-name "kcq"
+    :prefixed-name "kcq-metadatastician-kcq"
+  )
+  (clade
+    :primary "ky"
+    :primary-name "Kubernetes & YAML Tooling"
+    :secondary ("gv")
+    :assigned "2026-10-05"
+    :rationale "Kubernetes & YAML Tooling (ky): kcq is a K8s-native YAML processor and query tool. gv as secondary: the project inherits governance patterns from the metadatastician estate and contributes to data processing standards."
+  )
+  (forges
+    :github "metadatastician/kcq"
+    :gitlab "metadatastician/kcq"
+    :bitbucket "metadatastician/kcq"
+  )
+  (lineage
+    :type "standalone"
+    :parent ""
+    :born "2026-10-05"
+    :previous-names ()
+  )
+  (status
+    :phase "active"
+    :since "2026-10-05"
+    :present true
+    :aliases ()
+    :merged-into ""
+    :superseded-by ""
+    :successors ()
+  )
+  (status-history
+    (entry :phase "active" :since "2026-10-05" :note "Kubernetes Configuration Query - AffineScript KYAML processor; initial development")
+  )
+)

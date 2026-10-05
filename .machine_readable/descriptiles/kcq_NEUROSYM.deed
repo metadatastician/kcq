@@ -1,0 +1,30 @@
+;; SPDX-License-Identifier: CC-BY-SA-4.0
+;; SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+;;
+;; NEUROSYM Descriptile Deed for kcq
+;; Neuro-symbolic integration information
+(repo-deed
+  :schema-version "1.0.0"
+  :canonical-name "kcq-NEUROSYM"
+  (neurosym-config
+    :project "kcq"
+    :neuro-symbolic-enabled false
+    :integration-status "not-applicable"
+  )
+  (symbolic-components
+    :parser "Lexer + Parser in AffineScript"
+    :ast "Abstract Syntax Tree representation"
+    :query-engine "Path-based query system"
+    :linter "Rule-based validation"
+  )
+  (neural-components
+    :llm-assistance "Enabled via AI coordination"
+    :embedding-models ()
+    :vector-stores ()
+  )
+  (integration-approach
+    :strategy "Hybrid: Symbolic parser with AI-assisted setup"
+    :primary-workflow "Symbolic processing"
+    :ai-augmentation "Configuration, optimization, and compliance checking"
+  )
+)

@@ -1,0 +1,35 @@
+;; SPDX-License-Identifier: CC-BY-SA-4.0
+;; SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+;;
+;; ECOSYSTEM Descriptile Deed for kcq
+;; Ecosystem and dependency information
+(repo-deed
+  :schema-version "1.0.0"
+  :canonical-name "kcq-ECOSYSTEM"
+  (ecosystem
+    :project "kcq"
+    :owner "metadatastician"
+    :estate "metadatastician"
+    :language "AffineScript"
+    :runtime "WebAssembly"
+  )
+  (dependencies
+    (dependency :name "hyperpolymath/affinescript" :type "compiler" :required true :purpose "AffineScript language compiler")
+    (dependency :name "Kubernetes API Schemas" :source "kubernetes/kubernetes" :version "v1.30.x" :type "schema")
+  )
+  (integrations
+    :ci-platform "GitHub Actions"
+    :build-tool "just"
+    :package-manager "guix"
+  )
+  (compatibility
+    :k8s-versions ("v1.25" "v1.26" "v1.27" "v1.28" "v1.29" "v1.30")
+    :yaml-versions ("YAML 1.2")
+    :target-formats ("YAML" "JSON" "K8s manifests")
+  )
+  (targets
+    :primary ("WebAssembly" "native binary")
+    :secondary ("Docker container")
+    :experimental ("WASI")
+  )
+)

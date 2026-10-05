@@ -1,0 +1,36 @@
+;; SPDX-License-Identifier: CC-BY-SA-4.0
+;; SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+;;
+;; PLAYBOOK Descriptile Deed for kcq
+;; Project playbook and execution guide
+(repo-deed
+  :schema-version "1.0.0"
+  :canonical-name "kcq-PLAYBOOK"
+  (project-playbook
+    :project "kcq"
+    :version "0.1.0"
+  )
+  (strategic-objectives
+    (objective :id "yq-replacement" :priority "P0" :description "Replace yq with kcq for KYAML processing in the estate" :success-criteria "Performance >= yq, Memory < yq, Size < yq")
+    (objective :id "affinescript-proof" :priority "P1" :description "Prove AffineScript is viable for text processing workloads" :success-criteria "Production-ready compiler, Sufficient performance")
+    (objective :id "k8s-awareness" :priority "P1" :description "Provide K8s-aware YAML processing with domain validation" :success-criteria "All core K8s types supported, Lint rules effective")
+  )
+  (tactics
+    (tactic :name "Incremental rollout" :description "Deploy kcq alongside yq, compare results, gradually replace")
+    (tactic :name "Performance optimization" :description "Profile and optimize parsing speed and memory usage")
+    (tactic :name "Community adoption" :description "Promote adoption across hyperpolymath and metadatastician estates")
+  )
+  (execution-plan
+    (phase :id "P0" :name "Foundation" :duration "2 weeks" :goals ("Complete core parser" "Basic query operations" "Lint rules"))
+    (phase :id "P1" :name "Validation" :duration "2 weeks" :goals ("Performance benchmarks" "Correctness testing" "Edge case handling"))
+    (phase :id "P2" :name "Deployment" :duration "4 weeks" :goals ("Integration with kyaml" "CI/CD pipelines" "Documentation"))
+    (phase :id "P3" :name "Optimization" :duration "ongoing" :goals ("Performance tuning" "Feature completion" "Ecosystem expansion"))
+  )
+  (success-metrics
+    :parse-speed-target "50MB/s"
+    :memory-target "<10MB"
+    :startup-time-target "<100ms"
+    :coverage-target "80%"
+    :compliance-target "RSR Tier 2"
+  )
+)

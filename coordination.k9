@@ -1,0 +1,117 @@
+K9!
+# SPDX-License-Identifier: MPL-2.0
+# SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# coordination.k9 — AI Coordination Protocol for kcq
+# Kubernetes Configuration Query - AffineScript KYAML processor
+#
+# Repository: metadatastician/kcq
+# Owner: hyperpolymath
+
+---
+metadata:
+  schema: k9-coordination
+  schema_version: 1.0.0
+  generated_by: manual
+  last_updated: 2026-10-05
+
+project:
+  name: "kcq"
+  description: "Kubernetes Configuration Query — AffineScript-based KYAML processor. Provides a smaller, faster, K8s-aware alternative to yq with compile-time safety guarantees."
+  license: MPL-2.0
+  docs_license: CC-BY-SA-4.0
+  repo: "metadatastician/kcq"
+  estate: metadatastician
+  languages:
+    - AffineScript
+  build_system: just
+  crg_grade: C
+  rsr_tier: 2
+
+build_commands:
+  just build: "Build kcq AffineScript sources"
+  just test: "Run all kcq tests"
+  just bench: "Run performance benchmarks"
+  just lint: "Lint kcq source files"
+  just fmt: "Format kcq source files"
+  just clean: "Clean build artifacts"
+  just validate: "Validate RSR compliance"
+  just ai-setup: "AI-assisted setup for kcq"
+
+invariants:
+  - id: affinescript-only
+    rule: "All implementation code MUST be AffineScript"
+    reason: "Primary language constraint for the project"
+    severity: critical
+
+  - id: mpl-2.0-code
+    rule: "All source code MUST use MPL-2.0 license"
+    reason: "Estate standard for code licensing"
+    severity: critical
+
+  - id: cc-by-sa-4.0-docs
+    rule: "All documentation MUST use CC-BY-SA-4.0 license"
+    reason: "Estate standard for documentation licensing"
+    severity: critical
+
+  - id: deed-format-compliance
+    rule: "All machine-readable files MUST use .deed format"
+    reason: "Estate task #64 - migration to DEED standard"
+    severity: high
+
+  - id: uuid-v7-compliance
+    rule: "All UUIDs MUST be UUIDv7 per owner standards"
+    reason: "Estate invariant for unique identifiers"
+    severity: critical
+
+  - id: no-makefiles
+    rule: "No Makefiles - use Justfiles instead"
+    reason: "Estate standard - make is deprecated"
+    severity: critical
+
+  - id: rsr-tier-2-compliant
+    rule: "Repository MUST maintain RSR Tier 2 compliance"
+    reason: "Project quality standard"
+    severity: high
+
+  - id: k9-presence
+    rule: "Repository MUST have coordination.k9 file"
+    reason: "AI coordination protocol requirement"
+    severity: critical
+
+  - id: deed-file-presence
+    rule: "Repository MUST have _chora.deed file"
+    reason: "One-deed-per-repo doctrine (standards#837)"
+    severity: critical
+
+protected:
+  - path: src/
+    reason: "Primary source code"
+  - path: .machine_readable/descriptiles/
+    reason: "Machine-readable metadata - canonical source"
+  - path: coordination.k9
+    reason: "AI coordination protocol"
+  - path: kcq_chora.deed
+    reason: "Repository deed - single source of truth"
+  - path: Justfile
+    reason: "Build system configuration"
+  - path: kcq-launcher.sh
+    reason: "Project launcher script"
+
+capabilities:
+  - id: yaml-parsing
+    description: "Parse YAML documents including K8s manifests"
+    maturity: experimental
+    confidence: medium
+  - id: k8s-query
+    description: "Query Kubernetes YAML with path expressions"
+    maturity: experimental
+    confidence: medium
+  - id: k8s-linting
+    description: "Lint Kubernetes manifests for required fields and best practices"
+    maturity: experimental
+    confidence: medium
+  - id: affinescript-compilation
+    description: "Compile AffineScript to WASM/native"
+    maturity: experimental
+    confidence: medium
