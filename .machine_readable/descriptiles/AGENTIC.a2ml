@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: CC-BY-SA-4.0
 # Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 #
 # AGENTIC.a2ml — AI agent constraints and capabilities for kcq
@@ -23,7 +23,7 @@ can-create-files = true
 # - Never place state files in repository root (must be in .machine_readable/)
 # - Never relicense an existing file, and never run an automated licence
 #   sweep. kcq uses Apache-2.0 license (see LICENSE file).
-# - Never assume a licence. kcq is explicitly Apache-2.0 for all files.
+# - Never assume a licence. kcq uses MPL-2.0 for code and CC-BY-SA-4.0 for docs per estate standards.
 # - Never modify AffineScript compiler or runtime files in tools/
 
 [maintenance-integrity]

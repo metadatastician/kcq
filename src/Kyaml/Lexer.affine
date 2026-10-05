@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MPL-2.0
+// Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+
 // Kyaml.Lexer - Lexical analyzer for Kubernetes YAML
 //
 // This module provides the lexer (tokenizer) for KYAML.

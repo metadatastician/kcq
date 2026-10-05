@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+
 # Contributing to kcq
 
 We welcome contributions! This document outlines how to contribute to kcq.

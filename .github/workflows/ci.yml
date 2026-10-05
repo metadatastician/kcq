@@ -165,6 +165,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.github_token }}
           GITLEAKS_CONFIG: .gitleaksignore
 
+      - name: Check SPDX license headers
+        run: |
+          echo "Checking SPDX license headers..."
+          # Check for MPL-2.0 in code files
+          find src/ benches/ tests/ -name "*.affine" -exec grep -l "SPDX-License-Identifier: MPL-2.0" {} \;
+          # Check for CC-BY-SA-4.0 in documentation files
+          find . -name "*.adoc" -exec grep -l "SPDX-License-Identifier: CC-BY-SA-4.0" {} \;
+
   # Release
   release:
     name: Release
