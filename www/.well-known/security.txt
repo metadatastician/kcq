@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: MPL-2.0
+# RFC 9116 - security.txt
+# https://securitytxt.org/
+#
+# Contact matches .github/SECURITY.md and the estate's established author.
+# No Encryption: field — the estate signs with SSH and publishes no PGP key
+# (same reasoning as metadatastician/marid's security.txt). No Canonical:
+# field — this repository publishes no site to serve the file from yet.
+
+Contact: mailto:j.d.a.jewell@open.ac.uk
+Expires: 2027-09-30T23:59:59.000Z
+Preferred-Languages: en
+Policy: https://github.com/metadatastician/kcq/blob/main/.github/SECURITY.md

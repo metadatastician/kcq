@@ -1,0 +1,64 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+= kcq architecture
+:toc: preamble
+
+kcq (Kubernetes Configuration Query) is a Kubernetes-aware YAML processor,
+linter and query tool written in AffineScript, targeting WebAssembly. This page
+describes the repository as it stands. The project is at the design /
+scaffolding stage (see `.machine_readable/descriptiles/kcq_STATE.deed`), so
+most components below are planned rather than implemented.
+
+== Repository layout
+
+[cols="1,3",options="header"]
+|===
+| Path | Contents
+
+| `src/`
+| AffineScript sources. `src/Main.affine` is the entry point and
+`src/Kyaml.affine` the KYAML module root.
+
+| `src/Kyaml/`
+| The KYAML front end: `Lexer.affine`, `Parser.affine` and `Ast.affine`, plus
+the lint rules under `src/Kyaml/Lint/`.
+
+| `tests/`
+| AffineScript tests (`kyaml_parser_test.affine`, `lint_rules_test.affine`)
+and YAML inputs under `tests/fixtures/`.
+
+| `benches/`
+| Parsing benchmarks (`kyaml_parsing_bench.affine`).
+
+| `examples/`
+| Example Kubernetes manifests.
+
+| `templates/`
+| Kubernetes manifest templates (`deployment-template.yaml`,
+`service-template.yaml`). Their double-brace tokens are kcq template parameters,
+not unfilled repository placeholders.
+
+| `gradings/`
+| Compliance grading configurations (TOML).
+
+| `www/`
+| Static files for publication, currently `www/.well-known/security.txt`.
+
+| `.machine_readable/`
+| Machine-readable repository descriptions (`descriptiles/`).
+
+| `.github/`
+| Workflows, community-health files and governance.
+|===
+
+== Processing pipeline
+
+Input YAML is tokenised by the lexer, parsed into the KYAML abstract syntax
+tree, and then either queried, linted against the Kubernetes rule set, or
+pretty-printed. See `README.md` for the planned command set and the
+route-to-MVP milestones in the STATE descriptile.
+
+== Build
+
+The `Justfile` is the build entry point. Building requires the AffineScript
+toolchain (https://github.com/hyperpolymath/affinescript).
