@@ -11,7 +11,8 @@ Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 
 - Read the repo deed (`*_chora.deed` in the repo root) for canonical file locations
   (its `(ply ...)` clauses carry the canonical-locations tables).
-- State files (.a2ml) live in `.machine_readable/` ONLY, never the root.
+- Descriptive metadata (state, meta, ecosystem, agentic, neurosym, playbook) is
+  clauses of `kcq_chora.deed`; never create a `.a2ml` file.
 
 ## License
 
@@ -81,6 +82,7 @@ migration destination is AffineScript.
 
 ## State Files
 
-Never create these in the repo root:
-STATE.a2ml, META.a2ml, ECOSYSTEM.a2ml, AGENTIC.a2ml, NEUROSYM.a2ml, PLAYBOOK.a2ml.
-They belong in `.machine_readable/` only.
+Project state, meta, ecosystem, agentic, neurosym and playbook records are
+clauses of the one repo deed, `kcq_chora.deed` (owner rulings D308, D312).
+Milestones, blockers and next actions are in `docs/status/ROADMAP.adoc`.
+A2ML is retired: never create `.a2ml` files or a `.machine_readable/6a2/` copy.

@@ -40,31 +40,26 @@ info:
 # BUILD & COMPILE
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# Build kcq (debug mode)
+# AffineScript 0.1.1 does not parse the sources under src/, so nothing can be
+# built, tested or benchmarked yet. These recipes fail instead of producing a
+# placeholder binary or reporting tests that never ran
+# (docs/status/ROADMAP.adoc, Blockers).
+not_implemented := "not implemented: AffineScript 0.1.1 does not parse src/ (see docs/status/ROADMAP.adoc, Blockers)"
+
+# Build kcq (debug mode) — not implemented yet
 build *args:
-	@echo "Building {{project}}..."
-	@mkdir -p {{BIN_DIR}} {{DIST_DIR}}
-	@echo "# kcq v{{version}}" > {{BIN_DIR}}/kcq
-	@echo "#!/usr/bin/env bash" >> {{BIN_DIR}}/kcq
-	@echo "echo 'kcq v{{version}} — AffineScript KYAML Processor'" >> {{BIN_DIR}}/kcq
-	@echo "echo 'Usage: kcq <command> [options]'" >> {{BIN_DIR}}/kcq
-	@echo "echo 'Commands: lint, get, set, del, parse'" >> {{BIN_DIR}}/kcq
-	@chmod +x {{BIN_DIR}}/kcq
-	@echo "Build complete"
+	@echo "{{not_implemented}}" >&2
+	@exit 1
 
-# Build in release mode
+# Build in release mode — not implemented yet
 build-release *args:
-	@echo "Building {{project}} (release)..."
-	just build
-	@cp {{BIN_DIR}}/kcq {{BIN_DIR}}/kcq-release
-	@echo "Release build complete"
+	@echo "{{not_implemented}}" >&2
+	@exit 1
 
-# Build WASM version
+# Build WASM version — not implemented yet
 wasm *args:
-	@echo "Building WASM version..."
-	@mkdir -p {{DIST_DIR}}
-	@touch {{DIST_DIR}}/kcq.wasm
-	@echo "WASM build complete"
+	@echo "{{not_implemented}}" >&2
+	@exit 1
 
 # Clean build artifacts
 clean:
@@ -75,62 +70,60 @@ clean:
 # TEST & QUALITY
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# Run all tests
+# Run all tests — not implemented yet
 test *args:
-	@echo "Running kcq tests..."
-	@mkdir -p .test-results
-	@echo "Running parser tests..." && touch .test-results/parser-tests.log
-	@echo "Running lint tests..." && touch .test-results/lint-tests.log
-	@echo "All tests passed! Results in .test-results/"
+	@echo "{{not_implemented}}" >&2
+	@exit 1
 
-# Run benchmarks
+# Run benchmarks — not implemented yet
 bench:
-	@echo "Running kcq benchmarks..."
-	@mkdir -p .bench-results
-	@echo "Running parsing benchmarks..." && touch .bench-results/parsing-bench.log
-	@echo "Benchmarks complete! Results in .bench-results/"
+	@echo "{{not_implemented}}" >&2
+	@exit 1
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # VALIDATION & COMPLIANCE
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# Validate RSR compliance
+# DEED_LINT=<standards>/1-formats/deed/tools/deed_lint.js also checks the deed grammar.
+# Validate repository layout and the repo deed (fail-closed)
 validate:
-	@echo "Validating kcq RSR compliance..."
-	@echo "Checking directory structure..."
-	test -d src/ && echo "✓ src/ exists" || echo "✗ src/ missing"
-	test -d tests/ && echo "✓ tests/ exists" || echo "✗ tests/ missing"
-	test -d benches/ && echo "✓ benches/ exists" || echo "✗ benches/ missing"
-	test -d templates/ && echo "✓ templates/ exists" || echo "✗ templates/ missing"
-	test -d gradings/ && echo "✓ gradings/ exists" || echo "✗ gradings/ missing"
-	@echo "Checking machine-readable files..."
-	test -f .machine_readable/descriptiles/META.a2ml && echo "✓ META.a2ml exists" || echo "✗ META.a2ml missing"
-	test -f .machine_readable/descriptiles/CLADE.a2ml && echo "✓ CLADE.a2ml exists" || echo "✗ CLADE.a2ml missing"
-	test -f .machine_readable/descriptiles/STATE.a2ml && echo "✓ STATE.a2ml exists" || echo "✗ STATE.a2ml missing"
-	@echo "Checking license files..."
-	test -f LICENSE && echo "✓ LICENSE exists" || echo "✗ LICENSE missing"
-	test -f LICENSES/MPL-2.0.txt && echo "✓ MPL-2.0.txt exists" || echo "✗ MPL-2.0.txt missing"
-	test -f LICENSES/CC-BY-SA-4.0.txt && echo "✓ CC-BY-SA-4.0.txt exists" || echo "✗ CC-BY-SA-4.0.txt missing"
-	@echo "RSR validation complete"
+	#!/usr/bin/env bash
+	set -euo pipefail
+	fail=0
+	for d in src tests benches templates gradings; do
+	  if [ -d "$d" ]; then echo "✓ $d/ exists"; else echo "✗ $d/ missing"; fail=1; fi
+	done
+	for f in LICENSE LICENSES/MPL-2.0.txt LICENSES/CC-BY-SA-4.0.txt coordination.k9; do
+	  if [ -f "$f" ]; then echo "✓ $f exists"; else echo "✗ $f missing"; fail=1; fi
+	done
+	mapfile -t deeds < <(find . -maxdepth 1 -name '*_chora.deed' -type f)
+	if [ "${#deeds[@]}" -ne 1 ]; then
+	  echo "✗ expected exactly one *_chora.deed, found ${#deeds[@]}"
+	  exit 1
+	fi
+	deed="${deeds[0]}"
+	grep -q ':schema-version "' "$deed" || { echo "✗ $deed: no :schema-version"; fail=1; }
+	grep -q '(status' "$deed" || { echo "✗ $deed: no (status ...) clause"; fail=1; }
+	if grep -q '#u7"' "$deed"; then echo "✗ $deed: #u7 literal (illegal, D305)"; fail=1; fi
+	a2ml="$(git ls-files '*.a2ml' 2>/dev/null || find . -name '*.a2ml' -not -path './.git/*')"
+	if [ -n "$a2ml" ]; then echo "✗ A2ML is retired; remove: $a2ml"; fail=1; fi
+	if [ -n "${DEED_LINT:-}" ]; then
+	  bun "$DEED_LINT" "$deed" || fail=1
+	else
+	  echo "note: deed grammar NOT checked (DEED_LINT unset)"
+	fi
+	if [ "$fail" -ne 0 ]; then echo "validation FAILED"; exit 1; fi
+	echo "✓ $deed"
+	echo "validation passed"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# INSTALL & LAUNCHER
+# INSTALL
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# Install kcq system-wide
+# Install kcq system-wide — not implemented yet (there is no binary to install)
 install:
-	just build
-	sudo cp {{BIN_DIR}}/kcq /usr/local/bin/kcq
-	@echo "Installed to /usr/local/bin/kcq"
-
-# Create launcher script
-launcher:
-	@echo "Creating kcq launcher..."
-	@mkdir -p {{BIN_DIR}}
-	@echo "#!/usr/bin/env bash" > {{BIN_DIR}}/kcq-launcher
-	@echo "exec $(BIN_DIR)/kcq \"\$@\"" >> {{BIN_DIR}}/kcq-launcher
-	@chmod +x {{BIN_DIR}}/kcq-launcher
-	@echo "Launcher created in {{BIN_DIR}}/kcq-launcher"
+	@echo "{{not_implemented}}" >&2
+	@exit 1
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # DOCUMENTATION

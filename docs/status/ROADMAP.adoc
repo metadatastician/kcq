@@ -1,0 +1,95 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+= kcq Roadmap
+
+The journal of kcq: milestones, blockers and next actions.
+
+Phase and maturity are not recorded here. They live in the repo deed,
+`kcq_chora.deed`, in the `(status …)` and `(maturity …)` clauses. Objectives
+and success metrics are its `(playbook …)` clause.
+
+This file took over the journal half of the retired STATE descriptile
+(`.machine_readable/descriptiles/kcq_STATE.deed`, last updated 2026-10-05)
+and the tactics and execution plan of the retired PLAYBOOK descriptile. The
+STATE completion percentage (5%) was dropped.
+
+== Milestones
+
+[cols="5,1",options="header"]
+|===
+| Milestone | Done
+
+| Phase 0: Project scaffolding | 100%
+| Phase 1: Core KYAML parser (sources drafted; none compiles, see Blockers) | 5%
+| Phase 1b: Basic lint rules | 0%
+| Phase 1c: Basic query commands | 0%
+| Phase 1d: Pretty-print and format | 0%
+| Phase 2: Full KYAML support | 0%
+| Phase 2b: Advanced lint rules | 0%
+| Phase 2c: K8s schema validation | 0%
+| Phase 3: Full jq query language | 0%
+| Phase 3b: Full YAML 1.2 support | 0%
+| Phase 4: Multi-format support | 0%
+| Phase 5: Performance optimization | 0%
+|===
+
+== Blockers
+
+. **AffineScript 0.1.1 does not parse the sources.** Measured 2026-10-07:
+  `affinescript check` reports `parse error: Syntax error` at line 7 or 8 of
+  every one of the 9 `.affine` files under `src/`. Until that changes,
+  `just build`, `just wasm`, `just test` and `just bench` fail with
+  "not implemented" rather than emit a placeholder.
+. **No program input in the WebAssembly target.** The 0.1.1 toolchain gives
+  a compiled module no access to argv or stdin, so even a parsing build
+  could not read a manifest from the command line.
+. AffineScript text-processing libraries have not been verified for YAML
+  parsing.
+. Performance benchmarks against yq have not been established.
+
+== Quality gates
+
+[cols="2,3",options="header"]
+|===
+| Gate | State
+
+| Build | Not possible (blocker 1). STATE recorded "passing"; nothing was compiled.
+| Unit tests | None run. STATE recorded "pushed"; the test recipe was a placeholder.
+| Integration tests | Planned
+| Static analysis | Planned
+| Security scan | Planned
+| Performance benchmark | Planned
+| Metadata | `just validate` checks the deed (fail-closed)
+|===
+
+== Execution plan
+
+[cols="1,2,1,4",options="header"]
+|===
+| Id | Phase | Duration | Goals
+
+| P0 | Foundation | 2 weeks | Complete core parser; basic query operations; lint rules
+| P1 | Validation | 2 weeks | Performance benchmarks; correctness testing; edge-case handling
+| P2 | Deployment | 4 weeks | Integration with kyaml; CI/CD pipelines; documentation
+| P3 | Optimization | ongoing | Performance tuning; feature completion; ecosystem expansion
+|===
+
+Durations are the original plan's and start once blocker 1 clears.
+
+=== Tactics
+
+* **Incremental rollout:** run kcq alongside yq, compare results, replace
+  gradually.
+* **Performance optimization:** profile and optimise parsing speed and memory.
+* **Community adoption:** promote adoption across the hyperpolymath and
+  metadatastician estates.
+
+== Next actions
+
+. Re-run `affinescript check` on `src/` against each AffineScript release;
+  record the first release that parses all 9 files.
+. Plant a type error in an imported module and confirm `affinescript check`
+  rejects it, so a "passed" result is known to cover imports.
+. Once both hold, implement `parse` and `lint` dispatch and make `just wasm`
+  call `affinescript compile`.
+. Establish the yq baseline for the `(playbook (success-metrics …))` targets.
