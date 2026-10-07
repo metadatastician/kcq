@@ -9,7 +9,8 @@
 kcq — the yq that understands Kubernetes
 ```
 
-[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Code: MPL-2.0](https://img.shields.io/badge/Code-MPL_2.0-blue.svg)](LICENSE)
+[![Docs: CC-BY-SA-4.0](https://img.shields.io/badge/Docs-CC--BY--SA_4.0-lightgrey.svg)](LICENSES/CC-BY-SA-4.0.txt)
 [![Language: AffineScript](https://img.shields.io/badge/Language-AffineScript-blueviolet.svg)](https://github.com/hyperpolymath/affinescript)
 [![Target: WebAssembly](https://img.shields.io/badge/Target-WebAssembly-654ff0.svg)](https://webassembly.org/)
 
@@ -508,7 +509,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and contribution gu
 
 ## License
 
-Apache License 2.0 — see [LICENSE](LICENSE).
+- **Code:** Mozilla Public License 2.0, see [LICENSE](LICENSE).
+- **Documentation:** CC-BY-SA-4.0, see [LICENSES/CC-BY-SA-4.0.txt](LICENSES/CC-BY-SA-4.0.txt).
+
+Each file's `SPDX-License-Identifier` header is authoritative.
 
 ---
 
