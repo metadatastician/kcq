@@ -9,14 +9,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BIN_DIR="${SCRIPT_DIR}/bin"
 
-# Function to check if a command exists
-command_exists() {
-    command -v "$1" >/dev/null 2>&1
-}
-
-# Function to show usage
+# Print the command list and exit 0. build, build-release, test and bench
+# are listed but fail until AffineScript can compile the sources
+# (docs/status/ROADMAP.adoc, Blockers).
 usage() {
     echo "Usage: $(basename "$0") [COMMAND] [OPTIONS]"
     echo ""
@@ -24,17 +20,13 @@ usage() {
     echo "AffineScript-based KYAML processor"
     echo ""
     echo "Commands:"
-    echo "  build         - Build kcq (debug mode)"
-    echo "  build-release - Build kcq (release mode)"
-    echo "  test          - Run all tests"
-    echo "  bench         - Run benchmarks"
-    echo "  lint          - Lint source files"
-    echo "  fmt           - Format source files"
+    echo "  build         - Build kcq (debug mode; not implemented yet)"
+    echo "  build-release - Build kcq (release mode; not implemented yet)"
+    echo "  test          - Run all tests (not implemented yet)"
+    echo "  bench         - Run benchmarks (not implemented yet)"
     echo "  clean         - Clean build artifacts"
-    echo "  validate      - Validate RSR compliance"
-    echo "  install       - Install kcq system-wide"
-    echo "  deps          - Install dependencies"
-    echo "  ai-setup      - AI-assisted setup"
+    echo "  validate      - Validate the repo layout and deed"
+    echo "  install       - Install kcq system-wide (not implemented yet)"
     echo "  just          - Run just commands directly"
     echo ""
     echo "Options:"
@@ -48,7 +40,7 @@ usage() {
     exit 0
 }
 
-# Function to show version
+# Print the version, licences and repository, then exit 0.
 version() {
     echo "kcq v0.1.0 — Kubernetes Configuration Query"
     echo "AffineScript KYAML Processor"
@@ -85,16 +77,6 @@ case "${1:-}" in
         cd "${SCRIPT_DIR}"
         just bench
         ;;
-    lint)
-        echo "Linting kcq source files..."
-        cd "${SCRIPT_DIR}"
-        just lint
-        ;;
-    fmt)
-        echo "Formatting kcq source files..."
-        cd "${SCRIPT_DIR}"
-        just fmt
-        ;;
     clean)
         echo "Cleaning kcq build artifacts..."
         cd "${SCRIPT_DIR}"
@@ -109,16 +91,6 @@ case "${1:-}" in
         echo "Installing kcq system-wide..."
         cd "${SCRIPT_DIR}"
         just install
-        ;;
-    deps)
-        echo "Setting up kcq dependencies..."
-        cd "${SCRIPT_DIR}"
-        just deps
-        ;;
-    ai-setup)
-        echo "Running AI-assisted kcq setup..."
-        cd "${SCRIPT_DIR}"
-        just ai-setup
         ;;
     just)
         shift

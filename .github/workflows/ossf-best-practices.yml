@@ -64,18 +64,21 @@ jobs:
             exit 1
           fi
           echo "README: OK"
-      - name: Check .machine_readable directory and STATE.a2ml
+      # One deed per repo (owner rulings D308, D312); project state is its
+      # (status ...) clause.
+      - name: Check repo deed
         run: |
-          if [ ! -d ".machine_readable" ]; then
-            echo "::error::.machine_readable/ directory is required"
+          set -euo pipefail
+          mapfile -t deeds < <(find . -maxdepth 1 -name '*_chora.deed' -type f)
+          if [ "${#deeds[@]}" -ne 1 ]; then
+            echo "::error::exactly one *_chora.deed is required at the repo root, found ${#deeds[@]}"
             exit 1
           fi
-
-          if [ ! -f ".machine_readable/descriptiles/STATE.a2ml" ]; then
-            echo "::error::.machine_readable/descriptiles/STATE.a2ml is required"
+          if ! grep -q '(status' "${deeds[0]}"; then
+            echo "::error file=${deeds[0]}::the deed has no (status ...) clause"
             exit 1
           fi
-          echo ".machine_readable/descriptiles/STATE.a2ml: OK"
+          echo "${deeds[0]}: OK"
       - name: Check CHANGELOG exists
         run: |
           if [ ! -f "CHANGELOG.md" ] && [ ! -f "CHANGELOG.adoc" ] && [ ! -f "CHANGES.md" ]; then

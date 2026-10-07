@@ -4,14 +4,133 @@
 ;; kcq Repository Deed
 ;; Kubernetes Configuration Query - AffineScript KYAML processor
 ;; Owner: metadatastician
+;
+; One deed per repo (owner ruling D312). The identity, clade, forges,
+; lineage, status, maturity, ecosystem, meta, agentic, neurosym and playbook
+; clauses carry the former .machine_readable/descriptiles/kcq_<X>.deed files,
+; folded here in the order rsr-template-repo_chora.deed uses. STATE's journal
+; (milestones, blockers, next actions) is docs/status/ROADMAP.adoc; its
+; completion percentage was dropped.
 (repo-deed
   :schema-version "1.0.0"
   :canonical-name "kcq"
-  :repo-uuid #u7"01a10b22-1c7e-7a17-8927-d11ba663c212"
-  :beholding-chora #u7"metadatastician/kcq"
+  ; Name-based identifiers, as in rsr-template-repo. The former #u7 literal
+  ; is replaced, not retagged: a v7 value under a #u5 tag would misstate
+  ; the version nibble.
+  :repo-uuid #u5"github.com/metadatastician/kcq"
+  :beholding-chora #u5"estate/chora"
+  (identity
+    :primary-forge github
+    :owner "metadatastician"
+    :prefixed-name "dx-kcq")
+  ; The former CLADE record named "ky", which is not in the closed clade
+  ; set. The owner chose dx on 2026-10-07.
+  (clade
+    :primary dx
+    :primary-name "Developer Experience"
+    :secondary (gv)
+    :assigned "2026-10-05"
+    :rationale "Developer Experience (`dx`): kcq is a command-line query and lint tool for Kubernetes YAML, a developer tool. gv as secondary: it inherits governance patterns from the metadatastician estate.")
+  (forges
+    :github "metadatastician/kcq"
+    :gitlab "metadatastician/kcq"
+    :bitbucket "metadatastician/kcq")
+  (lineage
+    :type standalone
+    :parent ""
+    :born "2026-10-05"
+    :previous-names ())
+  (status
+    :phase active
+    :since "2026-10-05"
+    :present #t
+    :aliases ()
+    :merged-into ""
+    :superseded-by ""
+    :successors ()
+    :ended ""
+    (history
+      (entry :phase active :since "2026-10-05" :note "Kubernetes Configuration Query - AffineScript KYAML processor; initial development")))
+  ; No command is implemented yet: AffineScript 0.1.1 does not parse any of
+  ; the sources (docs/status/ROADMAP.adoc, Blockers).
+  (maturity
+    :level experimental)
+  (ecosystem
+    :project "kcq"
+    :ecosystem "metadatastician"
+    :purpose "Kubernetes Configuration Query: an AffineScript-based KYAML processor intended as a smaller, K8s-aware alternative to yq."
+    :language "AffineScript"
+    :runtime "WebAssembly"
+    (related :name "affinescript" :relationship compiler :notes "hyperpolymath/affinescript; the implementation language. Required.")
+    (related :name "kubernetes" :relationship schema-source :notes "Kubernetes API schemas, v1.30.x; target versions v1.25 to v1.30.")
+    (compatibility
+      :yaml-versions ("YAML 1.2")
+      :target-formats ("YAML" "JSON" "K8s manifests"))
+    (targets
+      :primary ("WebAssembly" "native binary")
+      :secondary ("Docker container")
+      :experimental ("WASI")))
+  (meta
+    :version "0.1.0"
+    :last-updated "2026-10-07"
+    :type binary
+    :languages ("AffineScript")
+    :license MPL-2.0
+    :author "Jonathan D.A. Jewell (hyperpolymath)"
+    :build-tool just
+    :ci-platform github-actions
+    :package-manager guix
+    :scoping-first #t
+    :execution-order "axis-1 > axis-2 > axis-3"
+    :axis-1 "must > intend > like"
+    :axis-2 "corrective > adaptive > perfective"
+    :axis-3 "systems > compliance > effects"
+    (design-rationale
+      :primary "AffineScript provides compile-time safety guarantees for YAML processing"
+      :secondary "K8s-specific parsing allows for domain-optimized processing"))
+  ; The former AGENTIC record declared supported operations (parse, lint,
+  ; query, get, set, del, format) and a `just ai-setup` command. None of
+  ; them exists, so neither is carried over.
+  (agentic
+    :version "0.1.0"
+    :last-updated "2026-10-07"
+    (permissions :source #t :tests #t :docs #t :config #t :create-files #t)
+    (integrity
+      :fail-closed #t
+      :require-evidence-per-step #t
+      :allow-silent-skip #f
+      :require-rerun-after-fix #t
+      :release-claim-requires-hard-pass #t)
+    (agent :id CLAUDE :role "AffineScript implementation, KYAML parser, integration")
+    (agent :id GEMINI :role "Estate audits, cross-repo compliance, pattern detection")
+    (agent :id VIBE :role "UI/frontend, rapid prototyping, agent panels"))
+  (neurosym
+    (metadata
+      :version "0.1.0"
+      :last-updated "2026-10-07")
+    :enabled #f
+    ; Planned symbolic components; none is implemented yet.
+    (symbolic-components
+      :parser "Lexer + Parser in AffineScript"
+      :ast "Abstract Syntax Tree representation"
+      :query-engine "Path-based query system"
+      :linter "Rule-based validation"))
+  (playbook
+    (metadata
+      :version "0.1.0"
+      :last-updated "2026-10-07")
+    (objective :id "yq-replacement" :priority "P0" :description "Replace yq with kcq for KYAML processing in the estate" :success-criteria "Performance >= yq, Memory < yq, Size < yq")
+    (objective :id "affinescript-proof" :priority "P1" :description "Prove AffineScript is viable for text processing workloads" :success-criteria "Production-ready compiler, Sufficient performance")
+    (objective :id "k8s-awareness" :priority "P1" :description "Provide K8s-aware YAML processing with domain validation" :success-criteria "All core K8s types supported, Lint rules effective")
+    (success-metrics
+      :parse-speed-target "50MB/s"
+      :memory-target "<10MB"
+      :startup-time-target "<100ms"
+      :coverage-target "80%"
+      :compliance-target "RSR Tier 2"))
   (manifest
     :version "0.1.0"
-    :last-updated "2026-10-05"
+    :last-updated "2026-10-07"
     :project "kcq"
     :purpose "Kubernetes Configuration Query — an AffineScript-based KYAML processor that provides a smaller, faster, K8s-aware alternative to yq. Designed to replace yq for Kubernetes workloads with compile-time safety guarantees and domain-specific validation."
     :license "MPL-2.0"
@@ -26,8 +145,6 @@
   )
   (ply
     (directory :ply 1 :path ".github" :description "GitHub configuration and CI/CD workflows")
-    (directory :ply 1 :path ".machine_readable" :description "Machine-readable metadata and deed files")
-    (directory :ply 0 :path ".machine_readable/descriptiles" :description "Descriptile deed files for repository metadata")
     (directory :ply 1 :path "bin" :description "Compiled binaries and build outputs")
     (directory :ply 1 :path "dist" :description "Distribution artifacts (WASM, releases)")
     (directory :ply 1 :path "examples" :description "Example Kubernetes manifests for testing and documentation")

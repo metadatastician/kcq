@@ -1,3 +1,10 @@
+# This workflow is managed by gh actions-lock.
+# SPDX-License-Identifier: MPL-2.0
+#
+# CI for kcq. It runs only the checks that can run today. There is no build,
+# test or release job: AffineScript 0.1.1 does not parse the sources, so any
+# such job could only upload a placeholder (docs/status/ROADMAP.adoc,
+# Blockers). Add them back when `affinescript compile` produces a module.
 name: CI
 
 on:
@@ -9,7 +16,6 @@ on:
       - '**.txt'
       - '.gitignore'
       - 'LICENSE'
-      - '*.a2ml'
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -18,196 +24,65 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
-  # Validate metadata files
   metadata:
     name: Metadata Validation
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
 
-      - name: Validate machine-readable files
+      # One deed per repo (owner rulings D308, D312). Fail-closed: a missing
+      # deed, a second deed, a #u7 literal or any .a2ml file is an error.
+      - name: Validate repo deed
         run: |
-          # Check that STATE.a2ml exists and is valid
-          if [ ! -f ".machine_readable/descriptiles/STATE.a2ml" ]; then
-            echo "::error::STATE.a2ml not found"
+          set -euo pipefail
+          mapfile -t deeds < <(find . -maxdepth 1 -name '*_chora.deed' -type f)
+          if [ "${#deeds[@]}" -ne 1 ]; then
+            echo "::error::expected exactly one *_chora.deed at the repo root, found ${#deeds[@]}"
             exit 1
           fi
-          # Basic syntax check
-          grep -q "^\[metadata\]" .machine_readable/descriptiles/STATE.a2ml
-          grep -q "^project = " .machine_readable/descriptiles/STATE.a2ml
+          deed="${deeds[0]}"
+          grep -q ':schema-version "' "$deed" || { echo "::error file=$deed::no :schema-version"; exit 1; }
+          grep -q '(status' "$deed" || { echo "::error file=$deed::no (status ...) clause"; exit 1; }
+          if grep -n '#u7"' "$deed"; then
+            echo "::error file=$deed::#u7 literals are illegal (owner ruling D305)"
+            exit 1
+          fi
+          a2ml="$(git ls-files '*.a2ml')"
+          if [ -n "$a2ml" ]; then
+            echo "::error::A2ML is retired; remove: $a2ml"
+            exit 1
+          fi
+          echo "deed OK: $deed"
 
-  # Build and test kcq
-  build:
-    name: Build
+  shellcheck:
+    name: Shellcheck
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: metadata
-    
+    timeout-minutes: 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
         with:
-          submodules: true
+          persist-credentials: false
 
-      - name: Setup AffineScript
-        uses: hyperpolymath/setup-affinescript@v1
-        id: affinescript
-        with:
-          # Use the latest AffineScript version
-          version: latest
-
-      - name: Cache AffineScript dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.affinescript
-            ${{ steps.affinescript.outputs.cache-dir }}
-          key: ${{ runner.os }}-affinescript-${{ steps.affinescript.outputs.version-hash }}
-          restore-keys: |
-            ${{ runner.os }}-affinescript-
-
-      - name: Install build dependencies
+      # shellcheck is preinstalled on ubuntu-latest runners. Every tracked
+      # script is checked for errors; the repo-owned launcher also for
+      # warnings. The hooks and scripts/ are synced from rsr-template-repo,
+      # so their warnings are fixed there, not here.
+      - name: Run shellcheck on tracked shell scripts
         run: |
-          # Install OCaml toolchain (AffineScript compiler dependency)
-          sudo apt-get update
-          sudo apt-get install -y ocaml opam
-          opam init --disable-sandboxing --yes
-          eval $(opam env)
-          opam install dune merlin -y
-
-      - name: Build kcq (WASM)
-        run: |
-          echo "Building kcq with AffineScript..."
-          # Placeholder - actual build command will depend on AffineScript toolchain
-          # affinescript build src/Main.affine -o dist/kcq.wasm
-          echo "Build placeholder - AffineScript toolchain integration coming soon"
-          mkdir -p dist
-          touch dist/kcq.wasm
-
-      - name: Build kcq (native)
-        run: |
-          echo "Building kcq native..."
-          # Placeholder - native build
-          mkdir -p bin
-          touch bin/kcq
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: kcq-artifacts
-          path: |
-            dist/
-            bin/
-          retention-days: 7
-
-  # Lint and format check
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: build
-    
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Run shellcheck
-        uses: reviewdog/action-shellcheck@v1
-        with:
-          github_token: ${{ secrets.github_token }}
-          reporter: github-pr-review
-          level: warning
-          exclude: "./scripts/*"
-
-  # Test suite
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: build
-    
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: kcq-artifacts
-          path: .
-
-      - name: Run basic tests
-        run: |
-          echo "Running kcq tests..."
-          # Test linting
-          ./bin/kcq lint examples/deployment.yaml || true
-          # Test parsing
-          ./bin/kcq get examples/deployment.yaml '.metadata.name' || true
-          echo "Test placeholder - full test suite coming soon"
-
-  # Security scan
-  security:
-    name: Security
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: build
-    
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Run gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.github_token }}
-          GITLEAKS_CONFIG: .gitleaksignore
-
-      - name: Check SPDX license headers
-        run: |
-          echo "Checking SPDX license headers..."
-          # Check for MPL-2.0 in code files
-          find src/ benches/ tests/ -name "*.affine" -exec grep -l "SPDX-License-Identifier: MPL-2.0" {} \;
-          # Check for CC-BY-SA-4.0 in documentation files
-          find . -name "*.adoc" -exec grep -l "SPDX-License-Identifier: CC-BY-SA-4.0" {} \;
-
-  # Release
-  release:
-    name: Release
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: [build, lint, test, security]
-    if: github.ref == 'refs/heads/main'
-    
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: kcq-artifacts
-          path: .
-
-      - name: Get version
-        id: version
-        run: |
-          # Extract version from STATE.a2ml
-          VERSION=$(grep '^version = ' .machine_readable/descriptiles/STATE.a2ml | cut -d'"' -f2)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Create release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          name: Release v${{ steps.version.outputs.version }}
-          tag_name: v${{ steps.version.outputs.version }}
-          generate_release_notes: true
-          files: |
-            dist/kcq.wasm
-            bin/kcq
-          fail_on_unmatched_files: false
+          set -euo pipefail
+          mapfile -t scripts < <(git ls-files '*.sh')
+          if [ "${#scripts[@]}" -eq 0 ]; then
+            echo "::error::no tracked shell scripts found; the check would be vacuous"
+            exit 1
+          fi
+          shellcheck --severity=error "${scripts[@]}"
+          shellcheck --severity=warning kcq-launcher.sh
