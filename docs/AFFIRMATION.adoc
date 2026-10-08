@@ -1,0 +1,182 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+= AFFIRMATION — metadatastician/kcq, as of 2026-10-07
+:toc: macro
+:toclevels: 2
+:icons: font
+:std-docs: https://github.com/hyperpolymath/standards/blob/main/docs
+Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+
+_What we affirm was true and checkable at a stamped moment._
+
+*Profile A (evidential)*, per
+link:{std-docs}/AFFIRMATION-STANDARD.adoc[AFFIRMATION-STANDARD.adoc].
+
+[CAUTION]
+====
+*Status: DRAFT — UNSIGNED.* Every claim below was re-run by the engineering
+party in the session that wrote this file. An affirmation is signed by the
+owner. That signature is not an agent's to give, so the owner block at the end
+is empty until the owner fills it.
+====
+
+toc::[]
+
+== What this is, and how it works
+
+kcq (Kubernetes Configuration Query) is meant to be a Kubernetes-aware YAML
+query and lint tool written in AffineScript and compiled to WebAssembly. *At
+this commit it does nothing.* No source file parses, so no command is
+implemented. This file records that state exactly, and records the guards that
+stop the repo claiming otherwise.
+
+== The epistemic contract
+
+You may conclude that each command below gave the stated exit code on the
+anchor commit, with the stated toolchain. You may not conclude anything about
+a later commit, another AffineScript release, or behaviour no command here
+exercises.
+
+[[anchor]]
+== Verifiable anchor
+
+[cols="1,2",options="header"]
+|===
+| Field | Contents
+
+| Repo
+| `metadatastician/kcq`
+
+| Branch
+| `main`
+
+| Commit (HEAD)
+| `4749fd508ec03d9a1729efbe10176e08b104ea82`
+
+| Permalink
+| https://github.com/metadatastician/kcq/tree/4749fd508ec03d9a1729efbe10176e08b104ea82
+
+| Verified (UTC)
+| `2026-10-07T10:18:22Z`
+
+| Working-tree delta at verification
+| The `affinescript`, `just`, `shellcheck` and `.a2ml` results were measured
+  on a clean tree. The deed checks were then re-run on the change that lands
+  this file. That change rewords three deed strings from present to
+  intended tense, corrects a file count and adds a grammar-gap blocker in
+  `docs/status/ROADMAP.adoc`, and replaces the README's Apache-2.0 badge and
+  licence line with MPL-2.0 (code) and CC-BY-SA-4.0 (docs). It changes no
+  code, recipe or workflow, so it does not affect any other result.
+
+| Toolchain
+| AffineScript 0.1.1 (`/usr/local/bin/affinescript`); just 1.56.0;
+  ShellCheck 0.11.0; Bun 1.3.14; `deed_lint.js` from
+  `hyperpolymath/standards` at `69ea45cf`.
+|===
+
+If you are reading this at a later commit, the claims may have drifted. Re-run
+the reproduction steps and write a fresh affirmation; do not trust a stale one.
+
+== Companion documents and repo metadata (cross-check)
+
+* `kcq_chora.deed`: `(maturity :level experimental)`. Read it against this
+  file.
+* `docs/status/ROADMAP.adoc`: blockers and next actions.
+* `README.md`: at the anchor its licence badge and licence section said
+  Apache-2.0, while `LICENSE` and the SPDX headers say MPL-2.0 for code and
+  CC-BY-SA-4.0 for prose. The change that lands this file corrects both, at
+  the owner's request. Its first two lines are still `//` SPDX comments,
+  which Markdown renders as visible text; that is flagged to the owner.
+
+== The honest state (one breath)
+
+kcq is a scaffold whose build, test and release recipes now fail loudly
+instead of producing fake artefacts. Its metadata is a single valid deed.
+
+=== What is solid (and how we checked)
+
+[cols="3,2",options="header"]
+|===
+| Claim | Check
+
+| The repo deed is grammatically valid.
+| `bun deed_lint.js kcq_chora.deed` → `OK`. A planted `true` in place of
+  `#t` makes it fail (rc=1), so the check is not vacuous.
+
+| `just validate` passes and is fail-closed.
+| `just validate` → rc=0.
+
+| No `.a2ml` file is tracked, and the deed has no `#u7` literal.
+| `git ls-files '*.a2ml' \| wc -l` → `0`; `grep -c '#u7"' kcq_chora.deed`
+  → `0`.
+
+| Every tracked shell script is free of ShellCheck errors.
+| `shellcheck --severity=error` over all 7 tracked `.sh` files → rc=0.
+  `shellcheck --severity=warning kcq-launcher.sh` → rc=0.
+
+| No recipe reports success for work it did not do.
+| `just build`, `just wasm`, `just test` and `just bench` each print
+  `not implemented: …` and exit 1.
+|===
+
+=== The honest nuance you must not lose
+
+* "`just validate` passes" means the metadata is well-formed. It says nothing
+  about the YAML processor, which does not exist yet.
+* `deed_lint.js` checks grammar only. It does not check that a clause's
+  claims are true.
+
+=== Known-incomplete but honestly fenced
+
+* *No source parses.* `affinescript check` exits 124 with
+  `parse error: Syntax error` on all 9 tracked `.affine` files: 6 in `src/`,
+  2 in `tests/` and 1 in `benches/`.
+* There is no build, test or release CI job, because any such job could only
+  upload a placeholder.
+
+=== Outstanding / weak / refuted (no spin)
+
+* *Refuted:* the retired descriptiles claimed `:build-status "passing"` and
+  supported operations `parse`, `lint` and `query`. None of these was true. They
+  were removed in kcq#2, not carried forward.
+* *Not re-run for this file:* `docs/status/ROADMAP.adoc` records that the
+  0.1.1 WebAssembly target gives a module no argv or stdin. That was measured
+  earlier on 2026-10-07 and is not affirmed here.
+* The branch ruleset requires CodeQL results and 80% coverage. Neither can be
+  produced while nothing compiles, so every PR needs an owner bypass.
+* At the anchor, `Rust CI`, `Governance` and `Secret Scanner` end in
+  `startup_failure` (they call standards reusable workflows); `CI`, CodeQL,
+  DEED, K9, Lock Sync and SonarQube succeed. Read from the Actions runs API
+  for the anchor commit.
+
+== Reproduce it yourself
+
+[source,bash]
+----
+git checkout 4749fd508ec03d9a1729efbe10176e08b104ea82
+for f in $(git ls-files '*.affine'); do
+  timeout 60 affinescript check "$f"; echo "rc=$? $f"   # expect rc=124 x9
+done
+just validate; echo "rc=$?"                             # expect 0
+for r in build wasm test bench; do just "$r"; echo "rc=$?"; done  # expect 1 x4
+shellcheck --severity=error $(git ls-files '*.sh'); echo "rc=$?"  # expect 0
+git -C ../standards show origin/main:1-formats/deed/tools/deed_lint.js \
+  > /tmp/deed_lint.js && bun /tmp/deed_lint.js kcq_chora.deed   # expect OK
+----
+
+== One-line characterisation (quote this)
+
+kcq is an honest scaffold: valid metadata, no working code, and recipes that
+say so.
+
+[[attestation]]
+== Joint attestation
+
+Engineering party (AI)::
+  Claude Opus 5.5 (`claude-opus-5-5`), Claude Code session
+  https://claude.ai/code/session_01D6JVLvmCeSFGcY6jSNesbL. Checks run at
+  2026-10-07T10:18:22Z (deed re-checked after the delta). The wording above is
+  a faithful report of those runs.
+
+Owner / maintainer::
+  _Empty. The owner signs by committing this file with `-S`._
