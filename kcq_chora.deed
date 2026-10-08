@@ -86,8 +86,8 @@
     :axis-2 "corrective > adaptive > perfective"
     :axis-3 "systems > compliance > effects"
     (design-rationale
-      :primary "AffineScript provides compile-time safety guarantees for YAML processing"
-      :secondary "K8s-specific parsing allows for domain-optimized processing"))
+      :primary "Intended: AffineScript type checking to give compile-time safety guarantees for YAML processing (not yet realised; no source compiles)"
+      :secondary "Intended: K8s-specific parsing to allow domain-optimised processing"))
   ; The former AGENTIC record declared supported operations (parse, lint,
   ; query, get, set, del, format) and a `just ai-setup` command. None of
   ; them exists, so neither is carried over.
@@ -132,7 +132,7 @@
     :version "0.1.0"
     :last-updated "2026-10-07"
     :project "kcq"
-    :purpose "Kubernetes Configuration Query — an AffineScript-based KYAML processor that provides a smaller, faster, K8s-aware alternative to yq. Designed to replace yq for Kubernetes workloads with compile-time safety guarantees and domain-specific validation."
+    :purpose "Kubernetes Configuration Query — an AffineScript-based KYAML processor intended as a smaller, faster, K8s-aware alternative to yq; not yet functional. Designed to replace yq for Kubernetes workloads with compile-time safety guarantees and domain-specific validation."
     :license "MPL-2.0"
     :docs-license "CC-BY-SA-4.0"
     (agent :name CLAUDE :role "AffineScript implementation, KYAML parser, integration")

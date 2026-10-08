@@ -37,9 +37,19 @@ STATE completion percentage (5%) was dropped.
 
 . **AffineScript 0.1.1 does not parse the sources.** Measured 2026-10-07:
   `affinescript check` reports `parse error: Syntax error` at line 7 or 8 of
-  every one of the 9 `.affine` files under `src/`. Until that changes,
+  every one of the 9 tracked `.affine` files (6 under `src/`, 2 under
+  `tests/`, 1 under `benches/`). Until that changes,
   `just build`, `just wasm`, `just test` and `just bench` fail with
   "not implemented" rather than emit a placeholder.
+. **The gap is a port, not a fix.** Read against the v0.1.1 grammar
+  (`lib/parser.mly`), not yet confirmed by the compiler past line 7: about
+  half of the 2456 lines need touching. Roughly 5% is mechanical (`module X;`
+  needs its semicolon, `import` becomes `use`, no trailing enum commas,
+  `&mut T` becomes `mut T`). Roughly a quarter is semi-mechanical (`#{…}`
+  record literals, two-segment paths only, no variant named after a builtin
+  type such as `String` or `Int`). The rest is a rewrite: 0.1.1 has no map
+  type, no `break`/`continue` and no `if let`, so the AST and every map
+  operation change shape.
 . **No program input in the WebAssembly target.** The 0.1.1 toolchain gives
   a compiled module no access to argv or stdin, so even a parsing build
   could not read a manifest from the command line.
@@ -87,7 +97,7 @@ Durations are the original plan's and start once blocker 1 clears.
 == Next actions
 
 . Re-run `affinescript check` on `src/` against each AffineScript release;
-  record the first release that parses all 9 files.
+  record the first release that parses all 9 tracked `.affine` files.
 . Plant a type error in an imported module and confirm `affinescript check`
   rejects it, so a "passed" result is known to cover imports.
 . Once both hold, implement `parse` and `lint` dispatch and make `just wasm`
