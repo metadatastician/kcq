@@ -33,13 +33,13 @@ workflows:
     '.github/workflows/estate-rules.yml':
         - 'actions/checkout@v7.0.1'
     '.github/workflows/governance.yml':
-        - 'hyperpolymath/standards@main'
+        - 'hyperpolymath/standards@0b1898e2e6a0fc88348c0f2517970593d373ca10'
     '.github/workflows/groove-check.yml':
         - 'actions/checkout@v7.0.1'
     '.github/workflows/guix-policy.yml':
         - 'actions/checkout@v7.0.1'
     '.github/workflows/hypatia-scan.yml':
-        - 'hyperpolymath/standards@main'
+        - 'hyperpolymath/standards@0b1898e2e6a0fc88348c0f2517970593d373ca10'
     '.github/workflows/k9-validate.yml':
         - 'actions/checkout@v7.0.1'
         - 'hyperpolymath/k9-ecosystem@main'
@@ -49,7 +49,7 @@ workflows:
     '.github/workflows/main-estate-audit.yml':
         - 'hyperpolymath/cicd-suite@55556cf5ba71ba744695861503c13148d3915a5d'
     '.github/workflows/mirror.yml':
-        - 'hyperpolymath/standards@main'
+        - 'hyperpolymath/standards@0b1898e2e6a0fc88348c0f2517970593d373ca10'
     '.github/workflows/ossf-best-practices.yml':
         - 'actions/checkout@v7.0.1'
     '.github/workflows/pages.yml':
@@ -74,11 +74,11 @@ workflows:
     '.github/workflows/runtime-policy.yml':
         - 'actions/checkout@v7.0.1'
     '.github/workflows/rust-ci.yml':
-        - 'hyperpolymath/standards@main'
+        - 'hyperpolymath/standards@0b1898e2e6a0fc88348c0f2517970593d373ca10'
     '.github/workflows/scorecard.yml':
-        - 'hyperpolymath/standards@main'
+        - 'hyperpolymath/standards@0b1898e2e6a0fc88348c0f2517970593d373ca10'
     '.github/workflows/secret-scanner.yml':
-        - 'hyperpolymath/standards@main'
+        - 'hyperpolymath/standards@0b1898e2e6a0fc88348c0f2517970593d373ca10'
     '.github/workflows/security-policy.yml':
         - 'actions/checkout@v7.0.1'
     '.github/workflows/sonarqube.yml':
@@ -155,6 +155,11 @@ dependencies:
         commit: 'sha1-bbbca2ddaa5d8feaa63e36b76fdaad77386f024f'
         owner_id: 44036562
         repo_id: 192625955
+    'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9':
+        ref: 'v7.0.2'
+        commit: 'sha1-cf430e030ddbb5b0abf93d22962f4752f3646cd9'
+        owner_id: 44036562
+        repo_id: 192625955
     'actions/upload-artifact@v7.0.1':
         ref: 'v7.0.1'
         commit: 'sha1-043fb46d1a93c77aae656e7c1c64a875d1fc6a0a'
@@ -175,6 +180,11 @@ dependencies:
     'dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772':
         ref: '6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772'
         commit: 'sha1-6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772'
+        owner_id: 1940490
+        repo_id: 260749683
+    'dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f':
+        ref: 'v1'
+        commit: 'sha1-e2a55d2ffb04f378e9626c28d38b36d230d1e12f'
         owner_id: 1940490
         repo_id: 260749683
     'editorconfig-checker/action-editorconfig-checker@51f63319f592f97930c73d9c46184d20bd206393':
@@ -245,6 +255,23 @@ dependencies:
         commit: 'sha1-22e7bdb322c430c1d0dac6b3bb307f4bb139d0be'
         owner_id: 6759885
         repo_id: 1352485172
+    'hyperpolymath/standards@0b1898e2e6a0fc88348c0f2517970593d373ca10':
+        ref: '0b1898e2e6a0fc88348c0f2517970593d373ca10'
+        commit: 'sha1-0b1898e2e6a0fc88348c0f2517970593d373ca10'
+        owner_id: 6759885
+        repo_id: 1116521501
+        uses:
+            - 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9'
+            - 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
+            - 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'
+            - 'dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f'
+            - 'editorconfig-checker/action-editorconfig-checker@51f63319f592f97930c73d9c46184d20bd206393'
+            - 'erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124'
+            - 'github/codeql-action@b96794f015dfd88f77b49b1c93e0fa7110f94c63'
+            - 'goto-bus-stop/setup-zig@abea47f85e598557f500fa1fd2ab7464fcb39406'
+            - 'ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc'
+            - 'swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6'
+            - 'webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555'
     'hyperpolymath/standards@da2c748aad55c1a1dcba00b60fe4a35017bc6540':
         ref: 'da2c748aad55c1a1dcba00b60fe4a35017bc6540'
         commit: 'sha1-da2c748aad55c1a1dcba00b60fe4a35017bc6540'
@@ -262,11 +289,6 @@ dependencies:
             - 'ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc'
             - 'Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6'
             - 'webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555'
-    'hyperpolymath/standards@main':
-        ref: 'main'
-        commit: 'sha1-d556b3db6c85718b971969b3d40da1b071aa4b2d'
-        owner_id: 6759885
-        repo_id: 1116521501
     'ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc':
         ref: '2d1146689b8cda280b9bc96326124645441f03bc'
         commit: 'sha1-2d1146689b8cda280b9bc96326124645441f03bc'
@@ -287,6 +309,11 @@ dependencies:
         commit: 'sha1-ba9859eae8dd6bd29e412f25ddbbef3d032000f4'
         owner_id: 545988
         repo_id: 366408409
+    'swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6':
+        ref: '6323deb102c322ba6fcbdcafc7e3dddab59af2b6'
+        commit: 'sha1-6323deb102c322ba6fcbdcafc7e3dddab59af2b6'
+        owner_id: 580492
+        repo_id: 298565987
     'webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555':
         ref: 'e83874834305fe9a4a2997156cb26c5de65a8555'
         commit: 'sha1-e83874834305fe9a4a2997156cb26c5de65a8555'
