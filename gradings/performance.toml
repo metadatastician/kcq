@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: CC-BY-SA-4.0
 # Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
-# Performance grading for kcq
+# Performance grading for kyq
 
 [metadata]
 version = "0.1.0"
@@ -8,7 +8,7 @@ last-updated = "2026-10-05"
 grading-type = "performance"
 
 [performance-targets]
-# Performance grading tiers for kcq
+# Performance grading tiers for kyq
 parse-speed-mb-per-second = [
   { tier = "excellent", threshold = 100, description = ">100MB/s parsing speed" },
   { tier = "good", threshold = 50, description = "50-100MB/s parsing speed" },

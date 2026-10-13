@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# kcq Launcher Script
+# kyq Launcher Script
 # SPDX-License-Identifier: MPL-2.0
 # Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 
-# This script provides a convenient way to launch kcq
+# This script provides a convenient way to launch kyq
 # It handles the just-based build system and provides useful commands
 
 set -euo pipefail
@@ -16,17 +16,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 usage() {
     echo "Usage: $(basename "$0") [COMMAND] [OPTIONS]"
     echo ""
-    echo "kcq — Kubernetes Configuration Query"
+    echo "kyq — Kubernetes YAML Query"
     echo "AffineScript-based KYAML processor"
     echo ""
     echo "Commands:"
-    echo "  build         - Build kcq (debug mode; not implemented yet)"
-    echo "  build-release - Build kcq (release mode; not implemented yet)"
+    echo "  build         - Build kyq (debug mode; not implemented yet)"
+    echo "  build-release - Build kyq (release mode; not implemented yet)"
     echo "  test          - Run all tests (not implemented yet)"
     echo "  bench         - Run benchmarks (not implemented yet)"
     echo "  clean         - Clean build artifacts"
     echo "  validate      - Validate the repo layout and deed"
-    echo "  install       - Install kcq system-wide (not implemented yet)"
+    echo "  install       - Install kyq system-wide (not implemented yet)"
     echo "  just          - Run just commands directly"
     echo ""
     echo "Options:"
@@ -42,10 +42,10 @@ usage() {
 
 # Print the version, licences and repository, then exit 0.
 version() {
-    echo "kcq v0.1.0 — Kubernetes Configuration Query"
+    echo "kyq v0.1.0 — Kubernetes YAML Query"
     echo "AffineScript KYAML Processor"
     echo "License: MPL-2.0 (code) / CC-BY-SA-4.0 (docs)"
-    echo "Repository: metadatastician/kcq"
+    echo "Repository: metadatastician/kyq"
     exit 0
 }
 
@@ -58,37 +58,37 @@ case "${1:-}" in
         version
         ;;
     build)
-        echo "Building kcq..."
+        echo "Building kyq..."
         cd "${SCRIPT_DIR}"
         just build
         ;;
     build-release)
-        echo "Building kcq (release mode)..."
+        echo "Building kyq (release mode)..."
         cd "${SCRIPT_DIR}"
         just build-release
         ;;
     test)
-        echo "Running kcq tests..."
+        echo "Running kyq tests..."
         cd "${SCRIPT_DIR}"
         just test
         ;;
     bench)
-        echo "Running kcq benchmarks..."
+        echo "Running kyq benchmarks..."
         cd "${SCRIPT_DIR}"
         just bench
         ;;
     clean)
-        echo "Cleaning kcq build artifacts..."
+        echo "Cleaning kyq build artifacts..."
         cd "${SCRIPT_DIR}"
         just clean
         ;;
     validate)
-        echo "Validating kcq RSR compliance..."
+        echo "Validating kyq RSR compliance..."
         cd "${SCRIPT_DIR}"
         just validate
         ;;
     install)
-        echo "Installing kcq system-wide..."
+        echo "Installing kyq system-wide..."
         cd "${SCRIPT_DIR}"
         just install
         ;;

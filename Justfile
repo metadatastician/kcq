@@ -1,15 +1,15 @@
 # SPDX-License-Identifier: CC-BY-SA-4.0
 # Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 #
-# kcq Justfile — Kubernetes Configuration Query
+# kyq Justfile — Kubernetes YAML Query
 # RSR-compliant build system for AffineScript KYAML processor
 
 set shell := ["bash", "-uc"]
 
 # Project metadata
-project := "kcq"
+project := "kyq"
 OWNER := "metadatastician" 
-REPO := "kcq"
+REPO := "kyq"
 version := "0.1.0"
 tier := "2"
 
@@ -22,7 +22,7 @@ DIST_DIR := "dist"
 # ═══════════════════════════════════════════════════════════════════════════════
 
 default:
-	@echo "kcq v{{version}} — Kubernetes Configuration Query"
+	@echo "kyq v{{version}} — Kubernetes YAML Query"
 	@echo "AffineScript KYAML Processor"
 	@echo "License: MPL-2.0 (code) / CC-BY-SA-4.0 (docs)"
 	@echo ""
@@ -46,7 +46,7 @@ info:
 # (docs/status/ROADMAP.adoc, Blockers).
 not_implemented := "not implemented: AffineScript 0.1.1 does not parse src/ (see docs/status/ROADMAP.adoc, Blockers)"
 
-# Build kcq (debug mode) — not implemented yet
+# Build kyq (debug mode) — not implemented yet
 build *args:
 	@echo "{{not_implemented}}" >&2
 	@exit 1
@@ -120,7 +120,7 @@ validate:
 # INSTALL
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# Install kcq system-wide — not implemented yet (there is no binary to install)
+# Install kyq system-wide — not implemented yet (there is no binary to install)
 install:
 	@echo "{{not_implemented}}" >&2
 	@exit 1
@@ -133,7 +133,7 @@ install:
 docs:
 	@echo "Generating documentation..."
 	@mkdir -p docs
-	@echo "# kcq Justfile Cookbook" > docs/just-cookbook.adoc
+	@echo "# kyq Justfile Cookbook" > docs/just-cookbook.adoc
 	@echo "Generated: $(date)" >> docs/just-cookbook.adoc
 	@echo "" >> docs/just-cookbook.adoc
 	@echo "== Available Recipes" >> docs/just-cookbook.adoc

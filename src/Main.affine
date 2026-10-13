@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 //
-// kcq Main Module
-// Entry point for the Kubernetes Configuration Query tool
+// kyq Main Module
+// Entry point for the Kubernetes YAML Query tool
 
 module Main
 
@@ -15,11 +15,11 @@ effect IO {
 }
 
 fn main() -{IO}-> () {
-    println("kcq v0.1.0 — Kubernetes Configuration Query");
+    println("kyq v0.1.0 — Kubernetes YAML Query");
     println("AffineScript KYAML Processor");
     println("License: MPL-2.0 (code) / CC-BY-SA-4.0 (docs)");
     println("");
-    println("Usage: kcq <command> [options]");
+    println("Usage: kyq <command> [options]");
     println("");
     println("Commands (none implemented yet; see docs/status/ROADMAP.adoc):");
     println("  parse     - Parse YAML/JSON input");
@@ -31,7 +31,7 @@ fn main() -{IO}-> () {
     println("  query    - Query YAML with path expression");
     println("");
     println("Examples:");
-    println("  echo 'apiVersion: v1\\nkind: Pod' | kcq parse");
-    println("  echo 'apiVersion: v1\\nkind: Pod\\nmetadata:\\n  name: test' | kcq lint");
-    println("  echo 'apiVersion: v1\\nkind: Pod\\nmetadata:\\n  name: test' | kcq get metadata.name");
+    println("  echo 'apiVersion: v1\\nkind: Pod' | kyq parse");
+    println("  echo 'apiVersion: v1\\nkind: Pod\\nmetadata:\\n  name: test' | kyq lint");
+    println("  echo 'apiVersion: v1\\nkind: Pod\\nmetadata:\\n  name: test' | kyq get metadata.name");
 }
