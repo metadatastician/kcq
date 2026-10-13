@@ -3,7 +3,7 @@
 = Maintainers
 :toc: preamble
 
-This is the maintainer roster for kcq.
+This is the maintainer roster for kyq.
 The repository's GitHub owner is link:https://github.com/metadatastician[metadatastician].
 
 == Current maintainers

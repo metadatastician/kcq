@@ -1,8 +1,8 @@
 ;; SPDX-License-Identifier: MPL-2.0
 ;; SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 ;;
-;; kcq Repository Deed
-;; Kubernetes Configuration Query - AffineScript KYAML processor
+;; kyq Repository Deed
+;; Kubernetes YAML Query - AffineScript KYAML processor
 ;; Owner: metadatastician
 ;
 ; One deed per repo (owner ruling D312). The identity, clade, forges,
@@ -13,16 +13,20 @@
 ; completion percentage was dropped.
 (repo-deed
   :schema-version "1.0.0"
-  :canonical-name "kcq"
+  :canonical-name "kyq"
   ; Name-based identifiers, as in rsr-template-repo. The former #u7 literal
   ; is replaced, not retagged: a v7 value under a #u5 tag would misstate
   ; the version nibble.
+  ; Renamed kcq -> kyq on 2026-10-14 (ruling D333). The preimage keeps the
+  ; original path on purpose: a name-based UUID identifies the repository,
+  ; and a rename does not make it a new one (ADR-008; aliasing is
+  ; standards#1230). Do not "fix" it to kyq.
   :repo-uuid #u5"github.com/metadatastician/kcq"
   :beholding-chora #u5"estate/chora"
   (identity
     :primary-forge github
     :owner "metadatastician"
-    :prefixed-name "dx-kcq")
+    :prefixed-name "dx-kyq")
   ; The former CLADE record named "ky", which is not in the closed clade
   ; set. The owner chose dx on 2026-10-07.
   (clade
@@ -30,11 +34,11 @@
     :primary-name "Developer Experience"
     :secondary (gv)
     :assigned "2026-10-05"
-    :rationale "Developer Experience (`dx`): kcq is a command-line query and lint tool for Kubernetes YAML, a developer tool. gv as secondary: it inherits governance patterns from the metadatastician estate.")
+    :rationale "Developer Experience (`dx`): kyq is a command-line query and lint tool for Kubernetes YAML, a developer tool. gv as secondary: it inherits governance patterns from the metadatastician estate.")
   (forges
-    :github "metadatastician/kcq"
-    :gitlab "metadatastician/kcq"
-    :bitbucket "metadatastician/kcq")
+    :github "metadatastician/kyq"
+    :gitlab "metadatastician/kyq"
+    :bitbucket "metadatastician/kyq")
   (lineage
     :type standalone
     :parent ""
@@ -50,15 +54,15 @@
     :successors ()
     :ended ""
     (history
-      (entry :phase active :since "2026-10-05" :note "Kubernetes Configuration Query - AffineScript KYAML processor; initial development")))
+      (entry :phase active :since "2026-10-05" :note "Kubernetes YAML Query - AffineScript KYAML processor; initial development")))
   ; No command is implemented yet: AffineScript 0.1.1 does not parse any of
   ; the sources (docs/status/ROADMAP.adoc, Blockers).
   (maturity
     :level experimental)
   (ecosystem
-    :project "kcq"
+    :project "kyq"
     :ecosystem "metadatastician"
-    :purpose "Kubernetes Configuration Query: an AffineScript-based KYAML processor intended as a smaller, K8s-aware alternative to yq."
+    :purpose "Kubernetes YAML Query: an AffineScript-based KYAML processor intended as a smaller, K8s-aware alternative to yq."
     :language "AffineScript"
     :runtime "WebAssembly"
     (related :name "affinescript" :relationship compiler :notes "hyperpolymath/affinescript; the implementation language. Required.")
@@ -119,7 +123,7 @@
     (metadata
       :version "0.1.0"
       :last-updated "2026-10-07")
-    (objective :id "yq-replacement" :priority "P0" :description "Replace yq with kcq for KYAML processing in the estate" :success-criteria "Performance >= yq, Memory < yq, Size < yq")
+    (objective :id "yq-replacement" :priority "P0" :description "Replace yq with kyq for KYAML processing in the estate" :success-criteria "Performance >= yq, Memory < yq, Size < yq")
     (objective :id "affinescript-proof" :priority "P1" :description "Prove AffineScript is viable for text processing workloads" :success-criteria "Production-ready compiler, Sufficient performance")
     (objective :id "k8s-awareness" :priority "P1" :description "Provide K8s-aware YAML processing with domain validation" :success-criteria "All core K8s types supported, Lint rules effective")
     (success-metrics
@@ -131,8 +135,8 @@
   (manifest
     :version "0.1.0"
     :last-updated "2026-10-07"
-    :project "kcq"
-    :purpose "Kubernetes Configuration Query — an AffineScript-based KYAML processor intended as a smaller, faster, K8s-aware alternative to yq; not yet functional. Designed to replace yq for Kubernetes workloads with compile-time safety guarantees and domain-specific validation."
+    :project "kyq"
+    :purpose "Kubernetes YAML Query — an AffineScript-based KYAML processor intended as a smaller, faster, K8s-aware alternative to yq; not yet functional. Designed to replace yq for Kubernetes workloads with compile-time safety guarantees and domain-specific validation."
     :license "MPL-2.0"
     :docs-license "CC-BY-SA-4.0"
     (agent :name CLAUDE :role "AffineScript implementation, KYAML parser, integration")

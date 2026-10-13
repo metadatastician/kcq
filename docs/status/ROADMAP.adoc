@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
-= kcq Roadmap
+= kyq Roadmap
 
-The journal of kcq: milestones, blockers and next actions.
+The journal of kyq: milestones, blockers and next actions.
 
 Phase and maturity are not recorded here. They live in the repo deed,
-`kcq_chora.deed`, in the `(status …)` and `(maturity …)` clauses. Objectives
+`kyq_chora.deed`, in the `(status …)` and `(maturity …)` clauses. Objectives
 and success metrics are its `(playbook …)` clause.
 
 This file took over the journal half of the retired STATE descriptile
@@ -88,7 +88,7 @@ Durations are the original plan's and start once blocker 1 clears.
 
 === Tactics
 
-* **Incremental rollout:** run kcq alongside yq, compare results, replace
+* **Incremental rollout:** run kyq alongside yq, compare results, replace
   gradually.
 * **Performance optimization:** profile and optimise parsing speed and memory.
 * **Community adoption:** promote adoption across the hyperpolymath and

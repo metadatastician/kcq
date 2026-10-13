@@ -2,15 +2,15 @@ K9!
 # SPDX-License-Identifier: MPL-2.0
 # SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 #
-# coordination.k9 — AI Coordination Protocol for kcq
-# Kubernetes Configuration Query - AffineScript KYAML processor
+# coordination.k9 — AI Coordination Protocol for kyq
+# Kubernetes YAML Query - AffineScript KYAML processor
 #
-# Repository: metadatastician/kcq
+# Repository: metadatastician/kyq
 # Owner: hyperpolymath
 #
 # Written to coordination grammar 1.1.1 (standards
 # 2-protocols/k9-coordination/spec/abnf/coordination-k9-grammar_v1.1.abnf).
-# Facts the grammar has no field for live in kcq_chora.deed: the docs
+# Facts the grammar has no field for live in kyq_chora.deed: the docs
 # licence (manifest :docs-license), the estate (ecosystem :ecosystem) and
 # the RSR tier target (playbook success-metrics). CRG grade: C.
 # Build recipes: see the Justfile. build, test, bench and wasm fail with
@@ -24,11 +24,11 @@ metadata:
   last_updated: 2026-10-07
 
 project:
-  name: "kcq"
-  description: "Kubernetes Configuration Query — AffineScript-based KYAML processor. Intended as a smaller, K8s-aware alternative to yq with compile-time safety guarantees."
+  name: "kyq"
+  description: "Kubernetes YAML Query — AffineScript-based KYAML processor. Intended as a smaller, K8s-aware alternative to yq with compile-time safety guarantees."
   license: MPL-2.0
-  repo: metadatastician/kcq
-  deed_ref: kcq_chora.deed
+  repo: metadatastician/kyq
+  deed_ref: kyq_chora.deed
   languages:
     - AffineScript
   build_system: just
@@ -47,7 +47,7 @@ invariants:
     reason: "Estate standard for documentation licensing"
     severity: critical
   - id: deed-format-compliance
-    rule: "Machine-readable descriptive metadata MUST be clauses of kcq_chora.deed; never create a .a2ml file"
+    rule: "Machine-readable descriptive metadata MUST be clauses of kyq_chora.deed; never create a .a2ml file"
     reason: "One deed per repo (owner rulings D308, D312)"
     severity: high
   - id: uuid-v8-compliance
@@ -80,9 +80,9 @@ protected:
     reason: "Primary source code"
   - path: coordination.k9
     reason: "AI coordination protocol"
-  - path: kcq_chora.deed
+  - path: kyq_chora.deed
     reason: "Repository deed - single source of truth"
   - path: Justfile
     reason: "Build system configuration"
-  - path: kcq-launcher.sh
+  - path: kyq-launcher.sh
     reason: "Project launcher script"

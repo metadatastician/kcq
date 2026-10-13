@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 //
-// kcq KYAML Parser Tests
+// kyq KYAML Parser Tests
 // Test suite for AffineScript KYAML parser
 
 module Kyaml.Parser.Test

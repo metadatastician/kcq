@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
-= kcq architecture
+= kyq architecture
 :toc: preamble
 
-kcq (Kubernetes Configuration Query) is a Kubernetes-aware YAML processor,
+kyq (Kubernetes YAML Query) is a Kubernetes-aware YAML processor,
 linter and query tool written in AffineScript, targeting WebAssembly. This page
 describes the repository as it stands. The project is at the design /
 scaffolding stage (see the `(status ...)` and `(maturity ...)` clauses of
-`kcq_chora.deed`, and `docs/status/ROADMAP.adoc`), so most components below
+`kyq_chora.deed`, and `docs/status/ROADMAP.adoc`), so most components below
 are planned rather than implemented.
 
 == Repository layout
@@ -36,7 +36,7 @@ and YAML inputs under `tests/fixtures/`.
 
 | `templates/`
 | Kubernetes manifest templates (`deployment-template.yaml`,
-`service-template.yaml`). Their double-brace tokens are kcq template parameters,
+`service-template.yaml`). Their double-brace tokens are kyq template parameters,
 not unfilled repository placeholders.
 
 | `gradings/`

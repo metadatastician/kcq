@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: CC-BY-SA-4.0
 # Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 
-# kcq Service Template
-# Standard Kubernetes Service template for kcq processing
+# kyq Service Template
+# Standard Kubernetes Service template for kyq processing
 apiVersion: v1
 kind: Service
 metadata:
@@ -10,7 +10,7 @@ metadata:
   namespace: {{NAMESPACE}}
   labels:
     app: {{APP_NAME}}
-    managed-by: kcq
+    managed-by: kyq
 spec:
   type: {{SERVICE_TYPE}}
   ports:

@@ -3,12 +3,14 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 -->
 
-# kcq: Kubernetes Configuration Query
+# kyq: Kubernetes YAML Query
 
 **Kubernetes-native YAML processor, linter, and query tool built with AffineScript.**
 
+> Formerly **kcq**; renamed to **kyq** on 2026-10-14 (owner ruling D333, hyperpolymath/standards#1234). Old `metadatastician/kcq` links redirect here.
+
 ```
-kcq — the yq that understands Kubernetes
+kyq — the yq that understands Kubernetes
 ```
 
 [![Code: MPL-2.0](https://img.shields.io/badge/Code-MPL_2.0-blue.svg)](LICENSE)
@@ -20,7 +22,7 @@ kcq — the yq that understands Kubernetes
 
 ## Overview
 
-`kcq` is a **Kubernetes Configuration Query** tool — a specialized YAML processor designed for the Kubernetes ecosystem. Built on [AffineScript](https://github.com/hyperpolymath/affinescript), it provides:
+`kyq` is a **Kubernetes YAML Query** tool — a specialized YAML processor designed for the Kubernetes ecosystem. Built on [AffineScript](https://github.com/hyperpolymath/affinescript), it provides:
 
 - **Kubernetes-aware parsing** — Understands K8s schemas, resource types, and conventions
 - **Resource safety** — AffineScript's type system prevents resource leaks and double-frees
@@ -30,9 +32,9 @@ kcq — the yq that understands Kubernetes
 
 ### Goal: Replace yq for Kubernetes Use Cases
 
-While `yq` is excellent for generic YAML/JSON processing, `kcq` is **optimized for Kubernetes**:
+While `yq` is excellent for generic YAML/JSON processing, `kyq` is **optimized for Kubernetes**:
 
-| Feature | yq | kcq |
+| Feature | yq | kyq |
 |---------|-----|-----|
 | K8s schema validation | ❌ | ✅ |
 | Deprecated API warnings | ❌ | ✅ |
@@ -44,7 +46,7 @@ While `yq` is excellent for generic YAML/JSON processing, `kcq` is **optimized f
 | Memory usage | Moderate | **Smaller** |
 | Format support | YAML, JSON, XML, CSV, TOML, HCL | **KYAML (K8s YAML), JSON** |
 
-> **For K8s: use kcq. For general YAML: use yq. Both can coexist.**
+> **For K8s: use kyq. For general YAML: use yq. Both can coexist.**
 
 ---
 
@@ -57,14 +59,14 @@ While `yq` is excellent for generic YAML/JSON processing, `kcq` is **optimized f
 git clone https://github.com/hyperpolymath/affinescript
 # Follow AffineScript setup instructions
 
-# Build kcq
-cd meta-repos/kcq
+# Build kyq
+cd meta-repos/kyq
 make build
 ```
 
 ### Pre-built Binaries
 
-Pre-built WebAssembly and native binaries will be available in [Releases](https://github.com/metadatastician/kcq/releases).
+Pre-built WebAssembly and native binaries will be available in [Releases](https://github.com/metadatastician/kyq/releases).
 
 ---
 
@@ -74,22 +76,22 @@ Pre-built WebAssembly and native binaries will be available in [Releases](https:
 
 ```bash
 # Lint a Kubernetes manifest for common issues
-kcq lint deployment.yaml
+kyq lint deployment.yaml
 
 # Pretty-print a YAML file
-kcq fmt deployment.yaml
+kyq fmt deployment.yaml
 
 # Query a value
-kcq get deployment.yaml '.spec.replicas'
+kyq get deployment.yaml '.spec.replicas'
 
 # Set a value
-kcq set deployment.yaml '.spec.replicas' 5 -i
+kyq set deployment.yaml '.spec.replicas' 5 -i
 
 # Validate against K8s schemas
-kcq validate deployment.yaml
+kyq validate deployment.yaml
 
 # Convert YAML to JSON
-kcq to-json deployment.yaml
+kyq to-json deployment.yaml
 ```
 
 ### Example: Full Workflow
@@ -117,19 +119,19 @@ spec:
 EOF
 
 # Lint for issues
-$ kcq lint deployment.yaml
+$ kyq lint deployment.yaml
 ✗ deployment.yaml:1:1 — deprecated API version: use apps/v1 instead of apps/v1beta2
 ✗ deployment.yaml:5:16 — type error: spec.replicas must be integer, got string
 ✗ deployment.yaml:14:10 — image uses :latest tag (nginx:latest)
 ✗ deployment.yaml:8:5 — selector mismatch: spec.selector.matchLabels does not match spec.template.metadata.labels
 
-# Fix issues with kcq
-kcq set deployment.yaml '.apiVersion' 'apps/v1' -i
-kcq set deployment.yaml '.spec.replicas' 3 -i
-kcq set deployment.yaml '.spec.template.spec.containers[0].image' 'nginx:1.25' -i
+# Fix issues with kyq
+kyq set deployment.yaml '.apiVersion' 'apps/v1' -i
+kyq set deployment.yaml '.spec.replicas' 3 -i
+kyq set deployment.yaml '.spec.template.spec.containers[0].image' 'nginx:1.25' -i
 
 # Verify
-$ kcq lint deployment.yaml
+$ kyq lint deployment.yaml
 ✓ deployment.yaml — all checks passed
 ```
 
@@ -137,7 +139,7 @@ $ kcq lint deployment.yaml
 
 ## Commands Reference
 
-### `kcq lint [FILES...]`
+### `kyq lint [FILES...]`
 
 Lint Kubernetes manifests for common issues.
 
@@ -160,7 +162,7 @@ Lint Kubernetes manifests for common issues.
   --check             Exit with error code if issues found
 ```
 
-### `kcq fmt [FILES...]`
+### `kyq fmt [FILES...]`
 
 Pretty-print YAML files.
 
@@ -172,52 +174,52 @@ Pretty-print YAML files.
   --width INT         Line width (default: 80)
 ```
 
-### `kcq get FILE PATH`
+### `kyq get FILE PATH`
 
 Extract a value from a YAML file.
 
 **Examples:**
 ```bash
 # Get replicas
-kcq get deployment.yaml '.spec.replicas'
+kyq get deployment.yaml '.spec.replicas'
 
 # Get all container images
-kcq get deployment.yaml '.spec.template.spec.containers[].image'
+kyq get deployment.yaml '.spec.template.spec.containers[].image'
 
 # Get from multiple files
-kcq get '*.yaml' '.metadata.name'
+kyq get '*.yaml' '.metadata.name'
 ```
 
-### `kcq set FILE PATH VALUE [-i]`
+### `kyq set FILE PATH VALUE [-i]`
 
 Set a value at a path.
 
 **Examples:**
 ```bash
 # Set replicas
-kcq set deployment.yaml '.spec.replicas' 5 -i
+kyq set deployment.yaml '.spec.replicas' 5 -i
 
 # Set image
-kcq set deployment.yaml '.spec.template.spec.containers[0].image' 'nginx:1.25' -i
+kyq set deployment.yaml '.spec.template.spec.containers[0].image' 'nginx:1.25' -i
 
 # Add namespace
-kcq set deployment.yaml '.metadata.namespace' 'production' -i
+kyq set deployment.yaml '.metadata.namespace' 'production' -i
 ```
 
-### `kcq del FILE PATH [-i]`
+### `kyq del FILE PATH [-i]`
 
 Delete a field at a path.
 
 **Examples:**
 ```bash
 # Remove a label
-kcq del deployment.yaml '.metadata.labels.old-label' -i
+kyq del deployment.yaml '.metadata.labels.old-label' -i
 
 # Remove a container
-kcq del deployment.yaml '.spec.template.spec.containers[1]' -i
+kyq del deployment.yaml '.spec.template.spec.containers[1]' -i
 ```
 
-### `kcq validate [FILES...]`
+### `kyq validate [FILES...]`
 
 Validate against Kubernetes OpenAPI schemas.
 
@@ -227,64 +229,64 @@ Validate against Kubernetes OpenAPI schemas.
   --strict          Strict validation (fail on warnings)
 ```
 
-### `kcq split FILE [-o DIR]`
+### `kyq split FILE [-o DIR]`
 
 Split multi-document YAML into separate files.
 
 **Examples:**
 ```bash
-kcq split multi.yaml -o manifests/
+kyq split multi.yaml -o manifests/
 # Creates: manifests/00-deployment.yaml, manifests/01-service.yaml, etc.
 ```
 
-### `kcq merge [FILES...] [-o FILE]`
+### `kyq merge [FILES...] [-o FILE]`
 
 Merge multiple YAML files into one.
 
-### `kcq diff FILE1 FILE2`
+### `kyq diff FILE1 FILE2`
 
 Show differences between two resources.
 
-### `kcq to-json FILE [-o FILE]`
+### `kyq to-json FILE [-o FILE]`
 
 Convert YAML to JSON.
 
-### `kcq from-json FILE [-o FILE]`
+### `kyq from-json FILE [-o FILE]`
 
 Convert JSON to YAML.
 
-### `kcq envsubst [FILES...]`
+### `kyq envsubst [FILES...]`
 
 Replace `${VAR}` with environment variables.
 
 **Examples:**
 ```bash
 # In YAML: image: ${IMAGE}:${TAG}
-IMAGE=nginx TAG=1.25 kcq envsubst deployment.yaml
+IMAGE=nginx TAG=1.25 kyq envsubst deployment.yaml
 # Output: image: nginx:1.25
 ```
 
-### `kcq inject [FILES...] [-i]`
+### `kyq inject [FILES...] [-i]`
 
 Inject namespace, labels, or annotations.
 
 **Examples:**
 ```bash
 # Inject namespace
-kcq inject deployment.yaml --namespace production -i
+kyq inject deployment.yaml --namespace production -i
 
 # Inject labels
-kcq inject deployment.yaml --label app=myapp --label env=prod -i
+kyq inject deployment.yaml --label app=myapp --label env=prod -i
 
 # Inject annotations
-kcq inject deployment.yaml --annotation 'k8s.io/description=My App' -i
+kyq inject deployment.yaml --annotation 'k8s.io/description=My App' -i
 ```
 
 ---
 
 ## Query Language
 
-`kcq` supports a **jq-like query language** optimized for Kubernetes.
+`kyq` supports a **jq-like query language** optimized for Kubernetes.
 
 ### Path Queries
 
@@ -319,7 +321,7 @@ kcq inject deployment.yaml --annotation 'k8s.io/description=My App' -i
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                         kcq CLI                                │
+│                         kyq CLI                                │
 ├─────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐  │
@@ -420,20 +422,20 @@ kcq inject deployment.yaml --annotation 'k8s.io/description=My App' -i
 
 ---
 
-## Comparison: kcq vs yq
+## Comparison: kyq vs yq
 
 ### Size & Performance
 
-| Metric | yq (Go) | kcq (AffineScript/WASM) | Winner |
+| Metric | yq (Go) | kyq (AffineScript/WASM) | Winner |
 |--------|---------|----------------------------|--------|
-| Binary size | ~30-50MB | **~1-5MB** | ✅ kcq |
-| Memory usage | ~50-100MB | **~20-40MB** | ✅ kcq |
-| Startup time | ~50ms | **~10-20ms** | ✅ kcq |
+| Binary size | ~30-50MB | **~1-5MB** | ✅ kyq |
+| Memory usage | ~50-100MB | **~20-40MB** | ✅ kyq |
+| Startup time | ~50ms | **~10-20ms** | ✅ kyq |
 | Parse speed | ~50MB/s | **~30-40MB/s** (early) | ⚠️ yq |
 
 ### Features
 
-| Feature | yq | kcq | Winner |
+| Feature | yq | kyq | Winner |
 |---------|-----|-----|--------|
 | Generic YAML | ✅ | ✅ | Tie |
 | JSON | ✅ | ✅ | Tie |
@@ -442,15 +444,15 @@ kcq inject deployment.yaml --annotation 'k8s.io/description=My App' -i
 | TOML | ✅ | ❌ | yq |
 | HCL | ✅ | ❌ | yq |
 | Properties | ✅ | ❌ | yq |
-| **K8s schema validation** | ❌ | ✅ | ✅ kcq |
-| **Deprecated API warnings** | ❌ | ✅ | ✅ kcq |
-| **Selector validation** | ❌ | ✅ | ✅ kcq |
-| **Image tag warnings** | ❌ | ✅ | ✅ kcq |
-| **Resource naming rules** | ❌ | ✅ | ✅ kcq |
+| **K8s schema validation** | ❌ | ✅ | ✅ kyq |
+| **Deprecated API warnings** | ❌ | ✅ | ✅ kyq |
+| **Selector validation** | ❌ | ✅ | ✅ kyq |
+| **Image tag warnings** | ❌ | ✅ | ✅ kyq |
+| **Resource naming rules** | ❌ | ✅ | ✅ kyq |
 
 ### Kubernetes-Specific
 
-| Feature | yq | kcq |
+| Feature | yq | kyq |
 |---------|-----|-----|
 | Understands K8s schemas | ❌ | ✅ |
 | Knows resource kinds | ❌ | ✅ |
@@ -521,7 +523,7 @@ Each file's `SPDX-License-Identifier` header is authoritative.
 ## Related Projects
 
 - [yq](https://github.com/mikefarah/yq) — The inspiration for generic YAML processing
-- [AffineScript](https://github.com/hyperpolymath/affinescript) — The language kcq is built with
+- [AffineScript](https://github.com/hyperpolymath/affinescript) — The language kyq is built with
 - [Kustomize](https://github.com/kubernetes-sigs/kustomize) — K8s configuration management
 - [Helm](https://helm.sh) — K8s package manager
 - [kubectl](https://kubernetes.io/docs/reference/kubectl/) — K8s CLI

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 
-# Contributing to kcq
+# Contributing to kyq
 
-We welcome contributions! This document outlines how to contribute to kcq.
+We welcome contributions! This document outlines how to contribute to kyq.
 
 ## Development Setup
 
@@ -30,11 +30,11 @@ We welcome contributions! This document outlines how to contribute to kcq.
    source ~/.cargo/env
    ```
 
-### Building kcq
+### Building kyq
 
 ```bash
 # Clone the repository
-cd /home/hyperpolymath/developer/meta-repos/kcq
+cd /home/hyperpolymath/developer/meta-repos/kyq
 
 # Build the AffineScript core
 make build
@@ -49,7 +49,7 @@ make wasm
 ### Project Structure
 
 ```
-kcq/
+kyq/
 ├── src/
 │   └── Kyaml/
 │       ├── Lexer.affine       # Tokenizer for KYAML
@@ -82,7 +82,7 @@ kcq/
 
 ### AffineScript Style Guide
 
-1. **Use LucidScript face** (Haskell-like syntax) for kcq
+1. **Use LucidScript face** (Haskell-like syntax) for kyq
 2. **Type everything** — AffineScript's type system is your friend
 3. **Keep functions pure** where possible
 4. **Use affine types** for resource management (file handles, memory)
@@ -230,7 +230,7 @@ We aim to review PRs within **2 business days**.
 
 When reporting issues, please include:
 
-1. **Version** of kcq
+1. **Version** of kyq
 2. **Operating system**
 3. **Steps to reproduce**
 4. **Expected behavior**
@@ -245,4 +245,4 @@ When reporting issues, please include:
 
 ## License
 
-By contributing to kcq, you agree that your contributions will be licensed under the **Apache License 2.0**. See [LICENSE](LICENSE) for details.
+By contributing to kyq, you agree that your contributions will be licensed under the **Apache License 2.0**. See [LICENSE](LICENSE) for details.

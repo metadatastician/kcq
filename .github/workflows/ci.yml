@@ -1,7 +1,7 @@
 # This workflow is managed by gh actions-lock.
 # SPDX-License-Identifier: MPL-2.0
 #
-# CI for kcq. It runs only the checks that can run today. There is no build,
+# CI for kyq. It runs only the checks that can run today. There is no build,
 # test or release job: AffineScript 0.1.1 does not parse the sources, so any
 # such job could only upload a placeholder (docs/status/ROADMAP.adoc,
 # Blockers). Add them back when `affinescript compile` produces a module.
@@ -85,4 +85,4 @@ jobs:
             exit 1
           fi
           shellcheck --severity=error "${scripts[@]}"
-          shellcheck --severity=warning kcq-launcher.sh
+          shellcheck --severity=warning kyq-launcher.sh
